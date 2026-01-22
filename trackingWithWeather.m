@@ -175,8 +175,8 @@ end
 %   DetectionProbability - assumed probability a target is detected each scan.
 %   If this is far from reality, track scoring can behave poorly.
 numTracks = 500;
-vol  = 1e9;
-beta = 1e-14;
+vol  = 1e12;
+beta = 1e-13;
 if (enableDegradation) pd = 0.7;
 else pd = 0.9; end
 
@@ -196,7 +196,7 @@ if enableDegradation
 
     % Under degradation, we assume more false alarms than ideal.
     % (We keep these relatively moderate so association isn't totally starved.)
-    farGNN  = 1e-2;
+    farGNN  = 1e-3;
     farMHT  = 1e-3;
     farJPDA = 1e-3;
 else
@@ -268,7 +268,27 @@ end
 % CV:  Constant Velocity filter initialization
 fprintf("\n============ GNN + CV ============\n");
 tracker = trackerGNN( ...
-    'FilterInitializationFcn', @initCVFilter, ...
+    'FilterInitializationFcn', @initCustomCKF, ... % originally initCVFilter
+    'MaxNumTracks', numTracks, ...
+    'MaxNumSensors', 1, ...
+    'AssignmentThreshold', gate, ...
+    'TrackLogic', 'Score', ...
+    'DetectionProbability', pd, ...
+    'FalseAlarmRate', farGNN, ...
+    'Volume', vol, ...
+    'Beta', beta);
+
+% helperRunTracker does:
+%   - step through dataLog detections
+%   - call tracker(detections, time)
+%   - compute metrics vs truth
+[trackSummary, truthSummary, trackMetrics, truthMetrics, timeGNNCV] = helperRunTracker(dataLog, tracker, false);
+disp(trackSummary); disp(truthSummary);
+disp(trackMetrics); disp(truthMetrics);
+
+fprintf("\n============ GNN + CV ============\n");
+tracker = trackerGNN( ...
+    'FilterInitializationFcn', @initCVFilter, ... % originally initCVFilter
     'MaxNumTracks', numTracks, ...
     'MaxNumSensors', 1, ...
     'AssignmentThreshold', gate, ...
