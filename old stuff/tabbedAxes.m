@@ -25,3 +25,4 @@ rotate3d(hFig, 'on');   % allows rotation when view is 3D
 zoom(hFig, 'on');
 pan(hFig, 'off');       % optional: keep off unless you want pan default
 end
+
