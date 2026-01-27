@@ -1,5 +1,45 @@
+% WEATHERGENERATOR.m
+% =========================================================================
+% WEATHER GENERATION (Configuration Factory)
+% =========================================================================
+% PURPOSE:
+%   The "Central Database" of simulation settings. It acts as a static 
+%   factory that returns a configuration structure based on the requested 
+%   difficulty level ('Clear', 'Rainy', 'Storm', etc.).
+%
+% HOW IT CONNECTS:
+%   - Called by: MainReducedSim.m (at startup).
+%   - Outputs: 'config' struct containing:
+%       1. Sensor Params (Pd, R, Clutter) -> Sent to DetectionGenerator.
+%       2. Physics Params (Turbulence) -> Sent to TruthGenerator.
+%       3. Tracker Tuning (Gate, Q) -> Sent to GNNTracker.
+%
+% UNIQUE FEATURE:
+%   - Adaptive Tuning: This file doesn't just make the weather harder; 
+%     it also automatically re-tunes the GNNTracker (tightening gates, 
+%     increasing process noise) to give the system a fighting chance 
+%     against the harsher conditions.
+% =========================================================================
+% WEATHER & SENSOR TUNING GUIDE
+% =========================================================================
+% 1. ENVIRONMENTAL PARAMETERS (The "Problem")
+%   - Pd (0.0 - 1.0): Probability of Detection. Lower values simulate 
+%      sensor "blinking", where targets disappear for frames at a time.
+%   - R (Covariance): Measurement noise. High values (e.g., 150^2) make 
+%      dots jitter wildly around the true path.
+%   - FalseAlarmRate: Clutter density. 1e-10 is roughly the "Survivable Limit"
+%      before the tracker gets overwhelmed by ghosts.
+%   - TurbulenceSigma: The strength of wind gusts pushing the planes.
+%
+% 2. TRACKER ADAPTATION (The "Solution")
+%   - Gate: We tighten the gate (45 -> 25) in Clutter to prevent attaching 
+%      false alarms, but this increases the risk of losing fast targets.
+%   - Q_Maneuver: We increase process noise in Storms to tell the Kalman 
+%      filter "expect heavy turbulence, don't trust the straight line."
+%   - ConfirmTime: We wait longer (1.5s -> 2.0s) in rain to ensure a 
+%      track is real before displaying it to the user.
+% =========================================================================
 classdef WeatherGenerator
-    % WEATHER GENERATION (Updated for "Survivable Storm")
     
     methods(Static)
         function config = getParams(scenarioType)
@@ -21,8 +61,8 @@ classdef WeatherGenerator
             
             switch lower(scenarioType)
                 case 'clear'
-                    tuning.ConfirmTime = 1.5; 
-                    
+                    % Leave Defaults
+
                 case 'rainy'
                     config.Pd = 0.98; 
                     config.FalseAlarmRate = 2e-10; 
@@ -47,13 +87,9 @@ classdef WeatherGenerator
                     tuning.ConfirmTime = 2.5; 
                     
                 case 'storm'
-                    % --- SENSOR & PHYSICS ---
                     config.Pd = 0.90; 
                     config.R = diag([150, 150, 150].^2); 
-                    
-                    % KEEP REDUCED FAR: This is critical.
                     config.FalseAlarmRate = 1e-10;        
-                    
                     config.AttenuationFactor = 5e-5; 
                     config.TurbulenceSigma = 20.0;   
                     

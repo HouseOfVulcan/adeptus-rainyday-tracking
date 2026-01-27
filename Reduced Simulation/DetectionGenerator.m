@@ -1,12 +1,64 @@
+% DETECTIONGENERATOR.M
+% =========================================================================
+% DETECTION GENERATOR (Sensor Model)
+% =========================================================================
+% PURPOSE:
+%   Simulates a Radar/Lidar sensor by transforming the "Truth" state into 
+%   stochastic detections. It accounts for sensor limitations including 
+%   Field of View (FOV), measurement noise, detection probability (Pd), 
+%   and Poisson-distributed clutter (false alarms).
+%
+% HOW IT CONNECTS:
+%   - Input:  Truth List (from TruthGenerator.m) containing exact positions.
+%   - Output: Detection List (Cell Array) fed directly into GNNTracker.m.
+%
+% KEY LOGIC:
+%   - Time-Invariant Clutter: Uses the 'dt' parameter to scale the clutter 
+%     rate, ensuring that the number of false alarms per second remains 
+%     constant regardless of the simulation's frame rate.
+%   - Stochastic PD: Implements a probability of detection that can be 
+%     optionally attenuated based on target range.
+%   - Field of View: Filters both real targets and clutter points through 
+%     azimuth, elevation, and range constraints.
+% =========================================================================
+% DETECTION GENERATOR PARAMETER & TUNING GUIDE
+% =========================================================================
+% This section defines the physical characteristics of the simulated 
+% Radar/Lidar sensor. These parameters determine the "reliability" of the 
+% data entering the tracker.
+%
+% 1. DETECTION PHYSICS
+%   - Pd (Probability of Detection): The baseline chance (0.0 to 1.0) that 
+%      a target is seen in a frame. Lower values simulate "missed blips."
+%   - AttenuationFactor: Simulates signal degradation over distance 
+%      (e.g., due to rain). Reduces Pd as the target moves further away.
+%
+% 2. CLUTTER (FALSE ALARMS)
+%   - FalseAlarmRate: The density of false detections generated per 
+%      unit volume, per second. Controls the amount of random noise/ghosts.
+%      (e.g., 1e-11 is clear, 1e-9 is heavy storm).
+%   - VolumeLimits: The 3D bounding box [min, max] for X, Y, Z coordinates
+%      where clutter points are allowed to spawn.
+%
+% 3. MEASUREMENT UNCERTAINTY
+%   - R (Measurement Noise Covariance): A 3x3 matrix defining the precision
+%      of the sensor. Larger diagonal values mean the sensor is "noisier" 
+%      and position readings will jitter more around the true location.
+%
+% 4. GEOMETRIC CONSTRAINTS
+%   - MaxRange: The absolute maximum distance (meters) the sensor can reach.
+%   - FOV (Field of View): [Azimuth; Elevation] limits in degrees. Targets 
+%      outside this cone are strictly invisible, regardless of Pd.
+% =========================================================================
 classdef DetectionGenerator < handle
-    % DETECTION GENERATOR (Fixed: Time-Normalized Clutter)
-    
+
     properties
         Config
     end
     
     methods
         function obj = DetectionGenerator(userConfig)
+            % Default values if not specified in initiazlization. 
             defaultConfig.Pd = 0.95; defaultConfig.R = diag([50, 50, 50].^2);
             defaultConfig.FalseAlarmRate = 1e-11; defaultConfig.MaxRange = 50000;
             defaultConfig.FOV = [180; 90]; defaultConfig.VolumeLimits = [-20000 20000; -20000 20000; 0 10000];
@@ -19,22 +71,19 @@ classdef DetectionGenerator < handle
             obj.Config = defaultConfig;
         end
         
-        % UPDATED ARGUMENTS: Added 'dt'
+        % Main randomizer
         function detections = step(obj, truth_list, time, dt)
             if nargin < 4, dt = 1.0; end % Fallback default
             
             volLimits = obj.Config.VolumeLimits;
             vol = diff(volLimits(1,:)) * diff(volLimits(2,:)) * diff(volLimits(3,:));
             
-            % FIX: Scale clutter by dt. 
-            % This converts FAR from "Per Scan" to "Per Second".
-            % result: Smaller dt = Fewer clutter points per frame (Same total per second)
+            % Scale clutter by dt. 
+            % FAR is measured "Per Second", not "Per Scan".
             lambda = vol * obj.Config.FalseAlarmRate * dt;
             numClutter = poissrnd(lambda);
             
             maxDets = length(truth_list) + numClutter;
-            
-            % Optimization: Struct Array
             emptyDet = struct('Measurement', [0;0;0], 'MeasurementNoise', obj.Config.R, ...
                               'Time', time, 'Type', '');
             detections = repmat(emptyDet, maxDets, 1);

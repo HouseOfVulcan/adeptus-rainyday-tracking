@@ -1,14 +1,44 @@
+% TRUTHGENERATOR.m
+% =========================================================================
+% TRUTH GENERATOR (Physics Engine)
+% =========================================================================
+% PURPOSE:
+%   The "Motion Controller" of the simulation. It calculates the exact 
+%   Ground Truth (Position & Velocity) for every target at any given time 't'.
+%
+% HOW IT CONNECTS:
+%   - Called by: MainReducedSim.m (every time step).
+%   - Input:  Waypoints defined in ScenarioGenerator.m.
+%   - Output: A list of "True States" fed into the DetectionGenerator.
+%
+% KEY LOGIC:
+%   - Waypoint Interpolation: Linearly interpolates between points based on
+%     the target's assigned speed.
+%   - Integrated Turbulence (The "Drift" System): Unlike simple additive noise, 
+%     this generator applies random *Acceleration* (Wind Gusts) which is 
+%     integrated into Velocity and then Position over time. This creates 
+%     realistic, smooth deviations ("Drift") rather than jittery noise.
+% =========================================================================
+% PHYSICS PARAMETER & TUNING GUIDE
+% =========================================================================
+% These parameters control how the targets move and react to the "weather".
+%
+% 1. TURBULENCE (Config.TurbulenceSigma)
+%   - Defined in WeatherGeneration.m, but applied here.
+%   - 0.0 = "Rails": Targets follow waypoints perfectly (Laboratory conditions).
+%   - 5.0 = "Bumpy": Noticeable drift, requires tracker Process Noise to fix.
+%   - 20.0 = "Hurricane": Targets are blown hundreds of meters off course.
+%
+% 2. DAMPING FACTOR (Hardcoded: 0.99)
+%   - Found in: get_states() method.
+%   - Purpose: Simulates air resistance. Without this, the random wind 
+%     accelerations would accumulate indefinitely, causing the plane to 
+%     eventually drift away at Mach 10.
+%   - Tuning: 
+%       * 0.99 = Standard atmospheric drag.
+%       * 1.00 = Space (No drag, drift accumulates forever).
+% =========================================================================
 classdef TruthGenerator < handle
-    % =========================================================================
-    % TRUTH GENERATOR (FIXED: PERSISTENT TURBULENCE)
-    % =========================================================================
-    %
-    % CHANGE LOG:
-    %   - Added 'DriftState' to store accumulated wind effects.
-    %   - Decoupled turbulence from Waypoints. Now, even if waypoints are 
-    %     0.1s apart, the wind drift continues to push the aircraft off-course
-    %     continuously over the full 60s.
-    % =========================================================================
     
     properties
         Targets

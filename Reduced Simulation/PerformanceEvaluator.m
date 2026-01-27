@@ -1,5 +1,50 @@
+% PERFORMANCEEVALUATOR.m
+% =========================================================================
+% PERFORMANCE EVALUATOR (The Scorekeeper)
+% =========================================================================
+% PURPOSE:
+%   The "Black Box" recorder of the simulation. It logs every single step 
+%   (Truth, Tracks, Detections) into a history structure. At the end of the 
+%   run, it "grades" the tracker by comparing its output against the 
+%   ground truth using industry-standard metrics.
+%
+% HOW IT CONNECTS:
+%   - Called by: MainReducedSim.m (every time step via record_step).
+%   - Output: Generates the "Executive Summary" text report and detailed 
+%     per-target breakdown tables.
+%
+% KEY LOGIC:
+%   - Robust Matching: Unlike simple frame-by-frame scoring, this algorithm 
+%     looks at the entire trajectory history to correctly identify "Fragmented" 
+%     tracks (one plane broken into two IDs) versus "Ghost" tracks.
+%   - OSPA Metric: Calculates the "Optimal Subpattern Assignment" distance, 
+%     which mathematically combines position error and cardinality error 
+%     (missed targets) into a single number.
+%   - Replay Data: Stores raw detections (Green Dots) so the SimulationPlotter 
+%     can re-render the scenario after the simulation finishes.
+% =========================================================================
+% PERFORMANCE EVALUATOR PARAMETER & TUNING GUIDE
+% =========================================================================
+% These parameters control how "strict" the grading system is. Changing these 
+% does not affect the tracker's behavior, only the final report card.
+%
+% 1. SCORING TOLERANCES
+%   - AssociationGate: The maximum distance (meters) allowed to say a 
+%      Track "matches" a Truth for scoring purposes. If a track is 
+%      further than this, it is counted as a False Alarm/Ghost.
+%   - QualityTolerance: The standard deviation (meters) used for the 
+%      "Quality %" Gaussian curve. 
+%      * High Value (e.g., 200m) = Lenient grading (High Scores).
+%      * Low Value (e.g., 50m) = Strict grading (Low Scores).
+%
+% 2. OSPA METRIC SETTINGS
+%   - OSPA_c (Cutoff): The maximum penalty for a missed target. If the 
+%      tracker misses a plane entirely, the error is capped at this value 
+%      (meters) to prevent the score from exploding to infinity.
+%   - OSPA_p (Order): Typically set to 2. This determines the mathematical 
+%      "norm" used (2 = Euclidean Distance).
+% =========================================================================
 classdef PerformanceEvaluator < handle
-    % PERFORMANCE EVALUATOR (Updated: Stores Detections for Replay)
     
     properties
         History         
@@ -21,33 +66,25 @@ classdef PerformanceEvaluator < handle
             stepData.Time       = time;
             stepData.Truths     = truths;
             stepData.Tracks     = tracks;
-            stepData.Detections = detections; % <--- Storing the Green Dots
+            stepData.Detections = detections; % Storing the Detection Dots
             obj.History(end+1)  = stepData;
         end
 
         function evaluate(obj, dt)
-            % (Keep existing evaluate code unchanged)
-            % ...
-            
-            % [Standard Printouts]
-            % ...
-            
-            % [End of evaluate function]
+ 
              fprintf('\n[ EXECUTIVE SUMMARY (dt=%.3fs) ]\n', dt);
-            % ... (Full previous print logic)
-            % Use the previous code for the rest of this function
             
              % --- 1. CONSOLIDATE DATA ---
             [truthMap, trackMap] = obj.consolidate_histories();
             truthIDs = cell2mat(keys(truthMap));
             
-            % --- 2. CALCULATE OSPA (The New Metric) ---
+            % --- 2. CALCULATE OSPA ---
             [avgOSPA, ~, ~] = obj.calculate_ospa_metric();
             
             % --- 3. CALCULATE MOTA ---
             sysMetrics = obj.calculate_mota_metrics();
             
-            % --- 4. ROBUST MATCHING ---
+            % --- 4. DATA MATCHING ---
             usedTrackIDs = [];
             truthReport = containers.Map('KeyType', 'double', 'ValueType', 'any');
             
@@ -249,7 +286,7 @@ classdef PerformanceEvaluator < handle
         end
         
         function metrics = calculate_mota_metrics(obj)
-            % (Standard MOTA logic - no changes needed)
+            % Standard MOTA logic
             totalTruths = 0; totalMisses = 0; totalFalseAlarms = 0; totalIDSwitches = 0;
             lastFrameMatches = containers.Map('KeyType', 'double', 'ValueType', 'double');
             for k = 1:length(obj.History)

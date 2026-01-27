@@ -1,7 +1,53 @@
+% MONTECARLORUNNER.m
+% =========================================================================
+% PURPOSE:
+%   The "Batch Processor" for the simulation. It executes the simulation 
+%   loop N times silently to gather statistical data. It transforms the 
+%   project from a visual demo into a rigorous scientific instrument.
+%
+% HOW IT CONNECTS:
+%   - Called by: MainReducedSim.m (when sim.enableMonteCarlo = true).
+%   - Orchestrates: Instantiates fresh copies of TruthGenerator, 
+%     DetectionGenerator, and GNNTracker for every single run.
+%   - Output: Generates the "Executive Summary" with statistical confidence 
+%     intervals (Mean +/- Standard Deviation).
+%
+% KEY LOGIC:
+%   - Fresh Initialization: Crucially resets all random number generators 
+%     and tracker history between runs to ensure statistical independence.
+%   - "Silent Mode": Suppresses the console spam and plotting overhead to 
+%     maximize execution speed.
+%   - Advanced Ghost Logic: Distinguishes between "Clutter" (raw false dots), 
+%     "Fragments" (valid tracks that broke), and true "Ghosts" (confirmed 
+%     tracks on empty space).
+%   - Aggregator: Computes deep metrics per-target (Survival, RMSE) across 
+%     all runs to find specific weak points in the tracker logic.
+% =========================================================================
+% MONTE CARLO METRICS & INTERPRETATION GUIDE
+% =========================================================================
+% This section defines the statistical metrics used to grade the system 
+% over multiple runs.
+%
+% 1. SYSTEM HEALTH METRICS
+%   - MOTA (Multi-Object Tracking Accuracy): The "Gold Standard" single 
+%      score (0-100%). Accounts for Misses, False Alarms, and ID Switches.
+%   - OSPA (Optimal Subpattern Assignment): A distance-based metric (meters).
+%      Combines position error and cardinality error (wrong number of targets).
+%
+% 2. FALSE POSITIVE ANALYSIS
+%   - False Alarms: Raw radar detections that do not map to a target. 
+%      (High in 'Storm' scenarios due to clutter).
+%   - Ghost Tracks: A much more severe failure where the tracker "Confirms" 
+%      a trajectory that does not exist. Ideally should be < 0.5 per run.
+%
+% 3. TARGET FIDELITY (Per-ID Breakdown)
+%   - Survival %: Percentage of the target's life it was successfully tracked.
+%   - Fragmentation: How many times a single target's track broke into 
+%      pieces (e.g., during a crossing event).
+%   - Purity: Measures identity consistency. 100% means the target held 
+%      the same ID number for the entire duration.
+% =========================================================================
 classdef MonteCarloRunner < handle
-    % MONTE CARLO RUNNER (Final Version)
-    % Now accurately distinguishes between "False Alarms" (Clutter) 
-    % and "Ghost Tracks" (False Trajectories).
     
     properties
         SimParams       % struct(.dt, .duration, .numRuns)
@@ -23,7 +69,7 @@ classdef MonteCarloRunner < handle
             obj.Stats.OSPA           = zeros(N, 1);
             obj.Stats.IDSwitches     = zeros(N, 1);
             obj.Stats.FalseAlarms    = zeros(N, 1); % Clutter Points
-            obj.Stats.GhostCounts    = zeros(N, 1); % Actual False Tracks <--- NEW
+            obj.Stats.GhostCounts    = zeros(N, 1); % Actual False Tracks
             obj.Stats.RunTimes       = zeros(N, 1);
             obj.Stats.TargetsDetected= zeros(N, 1);
             obj.Stats.AvgSurvival    = zeros(N, 1);
@@ -108,12 +154,10 @@ classdef MonteCarloRunner < handle
                 cands = evaluator.find_robust_matches(tData, trackMap, obj.SimParams.dt);
                 
                 if ~isempty(cands)
-                    % --- FIX START: CLAIM ALL FRAGMENTS ---
                     % Mark ALL candidates as "Claimed" so they don't count as Ghosts
                     for c = 1:length(cands)
                         claimedTrackIDs = [claimedTrackIDs, cands(c).TrackID]; %#ok<AGROW>
                     end
-                    % --- FIX END ---
                     
                     [~, bestIdx] = max([cands.MatchedDuration]);
                     bestMatch = cands(bestIdx);
@@ -224,7 +268,7 @@ classdef MonteCarloRunner < handle
                         id, muSurv, muFrag, muTTFT, muRMSE, muQual, muPur, detRate);
             end
             
-            % --- GHOST ANALYSIS (Corrected) ---
+            % --- GHOST ANALYSIS ---
             fprintf('\n[ GHOST TRACK ANALYSIS ]\n');
             avgGhosts = mean(obj.Stats.GhostCounts);
             

@@ -1,25 +1,55 @@
+% CUBATUREKALMANFILTER.m
+% =========================================================================
+% CUBATURE KALMAN FILTER (CUSTOM MATH LIBRARY)
+% =========================================================================
+% PURPOSE:
+%   A stateless, static math library providing the "Predict" and "Correct"
+%   steps for the tracker. It implements the Spherical-Radial Cubature 
+%   Kalman Filter (CKF), which is a non-linear estimator superior to the 
+%   Extended Kalman Filter (EKF) for complex tracking problems.
+%
+% HOW IT CONNECTS:
+%   - Called by: GNNTracker.m (exclusively).
+%   - Input:  Current State vector (6x1) and Covariance matrix (6x6).
+%   - Output: Updated State and Covariance estimates.
+%
+% KEY LOGIC:
+%   - Stateless Design: The functions are pure math inputs/outputs. It does 
+%     not store history, making it robust and easy to restart.
+%   - Numerical Safety: Includes fallback logic (using eigendecomposition) 
+%     if the covariance matrix becomes asymmetric or non-positive definite, 
+%     preventing mathematical crashes during long simulations.
+%   - NIS Calculation: Computes the Normalized Innovation Squared (Mahalanobis 
+%     Distance), which is the critical metric used by the tracker to deciding 
+%     which radar dots belong to which track.
+% =========================================================================
+% CUBATURE KALMAN FILTER PARAMETER & TUNING GUIDE
+% =========================================================================
+% This library is mathematically deterministic, but its performance depends 
+% entirely on the quality of the two noise matrices passed into it:
+%
+% 1. PROCESS NOISE (q_intensity)
+%    - Definition: Represents the "trust" in the Constant Velocity model.
+%    - Tuning:
+%       * Low Value (e.g., 5.0): Tells the filter "This object flies in a 
+%         straight line." Result: Smooth tracks, but laggy on turns.
+%       * High Value (e.g., 4000.0): Tells the filter "This object maneuvers 
+%         violently." Result: Fast reaction to turns, but jittery path.
+%
+% 2. MEASUREMENT NOISE (R)
+%    - Definition: Represents the "trust" in the sensor data.
+%    - Tuning:
+%       * Small Diagonals (e.g., 50^2): "The sensor is precise." The filter 
+%         will jump to every detection point.
+%       * Large Diagonals (e.g., 150^2): "The sensor is noisy." The filter 
+%         will ignore individual jitters and average the path over time.
+%
+% 3. STABILITY CONTROLS
+%    - Symmetric Enforcement: P = (P + P') / 2. This line prevents the 
+%      covariance matrix from becoming asymmetric due to floating-point 
+%      rounding errors, which would crash the Cholesky decomposition.
+% =========================================================================
 classdef CubatureKalmanFilter
-    % =========================================================================
-    % CUBATURE KALMAN FILTER (CKF) MATH LIBRARY
-    % =========================================================================
-    %
-    % PURPOSE:
-    %   A stateless, static library that implements the Spherical-Radial 
-    %   Cubature Kalman Filter algorithm.
-    %
-    % WHY CKF?
-    %   - Accuracy: Third-order accuracy for non-linear systems (better than EKF).
-    %   - Stability: Derivative-free (no Jacobians required).
-    %   - Robustness: Handles high non-linearity (e.g., Radar coordinates) well.
-    %
-    % KEY FEATURES:
-    %   - Stateless: Pure functional inputs/outputs. easy to port to C/C++.
-    %   - Time-Invariant: 'dt' is passed as an argument, allowing variable
-    %     frame rates without re-initialization.
-    %   - Numerical Safety: Includes 'eig' fallback for Cholesky decomposition
-    %     and forced symmetry steps to prevent covariance divergence.
-    %
-    % =========================================================================
     
     methods(Static)
         

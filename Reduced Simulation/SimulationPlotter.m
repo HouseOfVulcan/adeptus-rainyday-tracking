@@ -1,12 +1,41 @@
+% SIMULATIONPLOTTER.m
+% =========================================================================
+% SIMULATION PLOTTER (Visualization Engine)
+% =========================================================================
+% PURPOSE:
+%   The graphics engine for the simulation. It handles both "Live" plotting 
+%   during execution and "Static" plotting for post-run analysis. It creates 
+%   a dashboard of four synchronized windows to allow detailed inspection 
+%   of the tracker's performance.
+%
+% HOW IT CONNECTS:
+%   - Called by: MainReducedSim.m (when sim.enablePlotting = true).
+%   - Input: Raw Truth, Detection, and Track data structures.
+%
+% VISUALIZATION LAYOUT (4 Views):
+%   1. TRUTH (Noisy): The "God's Eye" view showing absolute truth plus 
+%      all sensor noise and clutter. Use this to judge scenario difficulty.
+%   2. TRACKER (Noisy): What the tracker "sees" vs. what it "thinks". 
+%      Useful for debugging association gates and ghost tracks.
+%   3. TRUTH (Clean): Pure trajectories without clutter. 
+%   4. TRACKER (Clean): The final output product (what the operator sees).
+% =========================================================================
+% PLOTTER PARAMETER & TUNING GUIDE
+% =========================================================================
+% Use these settings to control the visual output and rendering performance.
+%
+% 1. AXIS SETTINGS
+%   - Config.Limits: [Xmin Xmax; Ymin Ymax; Zmin Zmax]. Defines the static 
+%     zoom level of the 3D plot box.
+%
+% 2. PERFORMANCE OPTIMIZATION
+%   - MaximumNumPoints (2000): The length of the "tail" behind each target. 
+%     Reducing this speeds up plotting for long simulations but hides 
+%     older history.
+%   - drawnow limitrate: Used in the update loop to cap the frame rate 
+%     at 20 FPS, preventing Matlab from freezing during fast simulations.
+% =========================================================================
 classdef SimulationPlotter < handle
-    % =========================================================================
-    % VISUALIZATION ENGINE (FIXED LEGENDS)
-    % =========================================================================
-    % 1. Truth + Detections
-    % 2. Tracker + Detections
-    % 3. Truth Clean (No Detections)
-    % 4. Tracker Clean (No Detections)
-    % =========================================================================
     
     properties
         % Noisy Windows

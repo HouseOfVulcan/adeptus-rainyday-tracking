@@ -1,5 +1,44 @@
+% SCENARIOGENERATOR.m
+% =========================================================================
+% SCENARIO GENERATOR (Target Choreography)
+% =========================================================================
+% PURPOSE:
+%   The "Director" of the simulation. It defines the exact flight paths 
+%   (waypoints) for every target in the scene. By centralizing this logic, 
+%   we guarantee that the "Single Run" debug mode and the "Monte Carlo" 
+%   batch mode use the exact same physics and scenarios.
+%
+% HOW IT CONNECTS:
+%   - Called by: MainReducedSim.m AND MonteCarloRunner.m.
+%   - Modifies:  TruthGenerator (it calls 'add_target' to populate the world).
+%
+% THE SCRIPT (Default Scenario):
+%   1. The Helix Pair (T1 & T2): Two fighters spiraling around each other. 
+%      Tests the tracker's ability to handle high-speed, oscillating crossovers.
+%   2. The Singularity (T3-T6): Four jets converging on a single point 
+%      (0,0,5000) simultaneously. Tests the "Merge Logic" and collision handling.
+%   3. The Camera Drone (T7): A slow, loitering observer flying a large 
+%      circle. Acts as a "Control Group" (easy to track) to verify basic function.
+% =========================================================================
+% SCENARIO PARAMETER & TUNING GUIDE
+% =========================================================================
+% Use these variables to alter the geometry and difficulty of the test.
+%
+% 1. HELIX PARAMETERS (Agility Test)
+%   - turns: Number of full rotations the targets make. Higher = More frequent crossings.
+%   - radius: The width of the spiral (meters). Smaller radius = tighter turns = harder to track.
+%   - speed_helix: Velocity (m/s). Higher speed requires a higher 'Q_Maneuver' in the tracker.
+%
+% 2. SINGULARITY PARAMETERS (Collision Test)
+%   - cross_dist: The starting distance from the center. Determines how long 
+%     the tracker has to lock on before the collision occurs.
+%   - speed_sing: How fast they merge. 350 m/s is roughly Mach 1.
+%
+% 3. DRONE PARAMETERS (Baseline)
+%   - cam_rad: Radius of the loiter circle. 
+%   - ang step (10): Controls the smoothness of the circle.
+% =========================================================================
 classdef ScenarioGenerator
-    % SCENARIO GENERATOR
     % Centralized library of target trajectories.
     % Ensures MainReducedSim and MonteCarloRunner always use identical physics.
     

@@ -1,12 +1,71 @@
+% GNNTRACKER.M
+% =========================================================================
+% GNN TRACKER (Global Nearest Neighbor)
+% =========================================================================
+% PURPOSE:
+%   Acts as the central "intelligence" of the system. It manages the 
+%   lifecycle of multiple target trajectories simultaneously, using Global 
+%   Nearest Neighbor (GNN) association and Cubature Kalman Filtering (CKF) 
+%   to estimate future target states.
+%
+% HOW IT CONNECTS:
+%   - Input:  Filtered detections from DetectionGenerator.m.
+%   - Math:   Calls CubatureKalmanFilter.m for prediction and correction steps.
+%   - Output: Maintains a list of 'Confirmed' and 'Potential' track structures.
+%
+% KEY LOGIC:
+%   - Track Lifecycle: Implements a "M-of-N" style logic where potential 
+%     tracks must prove consistency (ConfirmThreshold) before being promoted.
+%   - GNN Association: Uses a greedy matching algorithm (matchpairs) combined 
+%     with Mahalanobis distance gating to assign detections to tracks.
+%   - Merge Logic: Automatically consolidates redundant tracks that share 
+%     the same physical space to prevent "track ghosting."
+%   - Time-Invariance: All thresholds (deletion time, confirmation time) are 
+%     automatically scaled by the simulation time step (dt).
+% =========================================================================
+% GNN TRACKER PARAMETER & TUNING GUIDE
+% =========================================================================
+% This section defines the behavioral constants that dictate how the 
+% tracker interprets sensor data and manages target lifecycles.
+%
+% 1. ASSOCIATION & GATING
+%   - Gate: The Chi-Square threshold for Mahalanobis distance. It defines 
+%      the statistical "safety zone" around a prediction.
+%   - MaxSpeed: The physical speed limit (m/s) used for coarse gating to 
+%      quickly reject impossible detections.
+%   - MergeThresholdSq: The squared distance limit used to identify and 
+%      consolidate redundant tracks occupying the same space.
+%
+% 2. FILTRATION & NOISE (CKF)
+%   - Q_Cruise: The process noise spectral density used during steady, 
+%      linear flight.
+%   - Q_Maneuver: Higher process noise used when a target is suspected 
+%      of turning or accelerating.
+%   - ManeuverThresh: The NIS (Normalized Innovation Squared) threshold 
+%      that triggers the switch to high-gain maneuver tracking.
+%
+% 3. LIFECYCLE MANAGEMENT
+%   - targetConfirmTime: The required duration of consistent detections 
+%      (in seconds) to promote a Potential track to Confirmed.
+%   - targetPotCoastTime: How long a Potential track can survive without 
+%      a detection before being deleted.
+%   - DeleteTime: The maximum "coasting" duration for a Confirmed track 
+%      to persist during sensor dropouts or occlusions.
+%
+% 4. DYNAMIC SCALING
+%   - ConfirmThreshold: The calculated number of consecutive hits needed 
+%      based on the current dt (ConfirmTime / dt).
+%   - PotentialMaxMisses: The frame-based limit for potential track 
+%      deletion (PotentialCoastTime / dt).
+% =========================================================================
 classdef GNNTracker < handle
-    % GNNTRACKER (Time-Invariant Updates)
-    
+   
     properties
         Tracks, NextTrackID, PotentialTracks 
         Gate, DeleteTime, MaxSpeed        
         Q_Cruise, Q_Maneuver, ManeuverThresh    
         
-        % Calculated Frame Thresholds
+        % Calculated Per-Frame Thresholds
         ConfirmThreshold 
         PotentialMaxMisses 
         MergeThresholdSq
@@ -26,7 +85,9 @@ classdef GNNTracker < handle
             obj.Gate = 45.0; 
             obj.DeleteTime = 2.5; % Seconds
             obj.MaxSpeed = 1200.0; 
-            obj.Q_Cruise = 5.0; obj.Q_Maneuver = 4000.0; obj.ManeuverThresh = 4.0;
+            obj.Q_Cruise = 5.0; 
+            obj.Q_Maneuver = 4000.0; 
+            obj.ManeuverThresh = 4.0;
             
             % Time-Based Defaults
             targetConfirmTime = 1.5; 
@@ -58,8 +119,6 @@ classdef GNNTracker < handle
         end
         
         function update(obj, detections, dt)
-            % (Step 1-3 Unchanged)
-            % ... [Predict, Association, Update Confirmed Tracks] ...
             
             % 1. Predict
             for i = 1:length(obj.Tracks)
@@ -94,7 +153,7 @@ classdef GNNTracker < handle
                 obj.Tracks(unassignedT(i)).Misses = obj.Tracks(unassignedT(i)).Misses + 1;
             end
 
-            % --- STEP 4: POTENTIAL TRACKS (SCALED) ---
+            % --- STEP 4: POTENTIAL TRACKS ---
             leftoverDets = detections(unassignedD);
             [potMatches, unassignedPot, unAssDetsFinal] = ...
                 obj.global_association(obj.PotentialTracks, leftoverDets, obj.Gate, dt);
@@ -110,7 +169,6 @@ classdef GNNTracker < handle
                 obj.PotentialTracks(pIdx).Misses = 0;
                 obj.PotentialTracks(pIdx).ConsecutiveHits = obj.PotentialTracks(pIdx).ConsecutiveHits + 1;
                 
-                % SCALED CHECK
                 if obj.PotentialTracks(pIdx).ConsecutiveHits >= obj.ConfirmThreshold
                     obj.promote_track(pIdx);
                 end
@@ -123,7 +181,7 @@ classdef GNNTracker < handle
                 obj.PotentialTracks(idx).Misses = obj.PotentialTracks(idx).Misses + 1;
             end
             
-            % SCALED DELETION (Replaces hardcoded '2')
+            % Track Deletion
             keepPot = [obj.PotentialTracks.Misses] <= obj.PotentialMaxMisses;
             obj.PotentialTracks = obj.PotentialTracks(keepPot);
             
@@ -132,7 +190,7 @@ classdef GNNTracker < handle
                 obj.create_potential(leftoverDets{unAssDetsFinal(i)});
             end
             
-            % 5. Cleanup Confirmed (Already Scaled via DeleteTime)
+            % 5. Cleanup Confirmed Tracks
             maxMisses = ceil(obj.DeleteTime / dt);
             keep = [obj.Tracks.Misses] <= maxMisses;
             obj.Tracks = obj.Tracks(keep);
@@ -140,7 +198,6 @@ classdef GNNTracker < handle
         end
         
         function [matches, unT, unD] = global_association(obj, tracks, dets, gate, dt)
-            % (Keep Optimized Math from previous step)
             nT = length(tracks); nD = length(dets);
             if nT == 0 || nD == 0
                 matches=[]; unT=(1:nT)'; unD=(1:nD)'; return; 
