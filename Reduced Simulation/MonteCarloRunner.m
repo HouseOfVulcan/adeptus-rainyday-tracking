@@ -107,7 +107,7 @@ classdef MonteCarloRunner < handle
             tracker  = GNNTracker(obj.SimParams.dt, obj.SensorConfig.TrackerTuning); 
             evaluator = PerformanceEvaluator();
             
-            ScenarioGenerator.load_default(truthGen);
+            ScenarioGenerator.load_scenario3(truthGen);
             
             % 2. EXECUTION
             numSteps = ceil(obj.SimParams.duration / obj.SimParams.dt);

@@ -38,6 +38,8 @@
 %      filter "expect heavy turbulence, don't trust the straight line."
 %   - ConfirmTime: We wait longer (1.5s -> 2.0s) in rain to ensure a 
 %      track is real before displaying it to the user.
+%   - ConfirmDensity: (M-of-N) The percentage of hits required within the
+%      window to confirm. Lower this in low-Pd environments.
 % =========================================================================
 classdef WeatherGenerator
     
@@ -48,16 +50,19 @@ classdef WeatherGenerator
             config.R = diag([50, 50, 50].^2); 
             config.FalseAlarmRate = 1e-12;
             config.TurbulenceSigma = 0; 
-            config.AttenuationFactor = 0;    
+            config.AttenuationFactor = 0;
             
             % --- DEFAULT TUNING ---
-            tuning.Gate           = 45.0;     
-            tuning.Q_Cruise       = 5.0;      
-            tuning.Q_Maneuver     = 4000.0;   
-            tuning.ManeuverThresh = 4.0;      
+            tuning.DeleteTime     = 2.5;
+            tuning.Gate           = 45;     
+            tuning.Q_Cruise       = 20;      
+            tuning.Q_Maneuver     = 4500;   
+            tuning.ManeuverThresh = 4;      
             tuning.MaxSpeed       = 1200.0;
-            tuning.ConfirmTime        = 1.5; 
+            tuning.ConfirmTime        = 1.99; % N = confirmtime / dt
             tuning.PotentialCoastTime = 1.0; 
+            tuning.MaxPotentialTracks = 100;
+            tuning.ConfirmDensity     = 0.79; % M = ceil(density * N)
             
             switch lower(scenarioType)
                 case 'clear'
@@ -68,14 +73,18 @@ classdef WeatherGenerator
                     config.FalseAlarmRate = 2e-10; 
                     config.R = diag([70, 70, 70].^2); 
                     config.AttenuationFactor = 2e-5; 
-                    config.TurbulenceSigma = 5.0;    
+                    config.TurbulenceSigma = 40.0;    
                     
-                    tuning.Gate = 25.0;        
-                    tuning.Q_Cruise = 10.0;    
-                    tuning.Q_Maneuver = 3000.0; 
-                    tuning.ManeuverThresh = 3.0;
-                    tuning.ConfirmTime = 2.0; 
-                    tuning.PotentialCoastTime = 1.5; 
+                    tuning.DeleteTime     = 2.5;
+                    tuning.Gate           = 40;     
+                    tuning.Q_Cruise       = 20;      
+                    tuning.Q_Maneuver     = 9000;   
+                    tuning.ManeuverThresh = 2.6;      
+                    tuning.MaxSpeed       = 1200.0;
+                    tuning.ConfirmTime        = 1.99; % N = confirmtime / dt
+                    tuning.PotentialCoastTime = 0.9; 
+                    tuning.MaxPotentialTracks = 100;
+                    tuning.ConfirmDensity     = 0.84; % M = ceil(density * N)   
                     
                 case 'fog'
                     config.Pd = 0.95; 
@@ -83,22 +92,35 @@ classdef WeatherGenerator
                     config.FalseAlarmRate = 5e-11;
                     config.AttenuationFactor = 1e-5; 
                     config.TurbulenceSigma = 0;      
-                    tuning.Gate = 40.0;
-                    tuning.ConfirmTime = 2.5; 
+
+                    tuning.DeleteTime     = 2.5;
+                    tuning.Gate           = 40;     
+                    tuning.Q_Cruise       = 20;      
+                    tuning.Q_Maneuver     = 4500;   
+                    tuning.ManeuverThresh = 4;      
+                    tuning.MaxSpeed       = 1200.0;
+                    tuning.ConfirmTime        = 1.99; % N = confirmtime / dt
+                    tuning.PotentialCoastTime = 1.0; 
+                    tuning.MaxPotentialTracks = 100;
+                    tuning.ConfirmDensity     = 0.79; % M = ceil(density * N)
                     
                 case 'storm'
                     config.Pd = 0.90; 
-                    config.R = diag([150, 150, 150].^2); 
+                    config.R = diag([100, 100, 100].^2); 
                     config.FalseAlarmRate = 1e-10;        
                     config.AttenuationFactor = 5e-5; 
-                    config.TurbulenceSigma = 20.0;   
+                    config.TurbulenceSigma = 80.0;   
                     
-                    tuning.Gate = 25.0;        
-                    tuning.Q_Cruise = 10.0;    
-                    tuning.Q_Maneuver = 3000.0; 
-                    tuning.ManeuverThresh = 3.0;
-                    tuning.ConfirmTime = 2.0; 
-                    tuning.PotentialCoastTime = 1.5;
+                    tuning.DeleteTime     = 2.5;
+                    tuning.Gate           = 25;     
+                    tuning.Q_Cruise       = 5000;      
+                    tuning.Q_Maneuver     = 8000;   
+                    tuning.ManeuverThresh = 6;      
+                    tuning.MaxSpeed       = 1200.0;
+                    tuning.ConfirmTime        = 3; % N = confirmtime / dt
+                    tuning.PotentialCoastTime = 3; 
+                    tuning.MaxPotentialTracks = 100;
+                    tuning.ConfirmDensity     = 0.4; % M = ceil(density * N)
                     
                 otherwise
                     warning('Unknown weather type. Using Clear defaults.');

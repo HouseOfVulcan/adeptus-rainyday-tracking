@@ -55,7 +55,7 @@ clc; clear; close all;
 % -------------------------------------------------------------------------
 % SIMULATION TIMING
 % -------------------------------------------------------------------------
-sim.dt       = 0.50;   % [s] Time Step. 0.10s is high fidelity, 0.50s is standard radar.
+sim.dt       = 0.1;   % [s] Time Step. 0.10s is high fidelity, 0.50s is standard radar.
 sim.duration = 60;     % [s] Total duration of the scenario.
 
 % -------------------------------------------------------------------------
@@ -93,8 +93,8 @@ else
     % =====================================================================
     
     % --- INITIALIZATION ---
-    plotConfig.Limits = [-10000 10000; -10000 10000; 0 10000];
-    sim.enablePlotting = true;  % Force animated plotting ON for single run
+    plotConfig.Limits = [-10000 15000; -10000 15000; 0 10000];
+    sim.enablePlotting = false;  % Force animated plotting ON for single run
 
     % Create System Objects
     truthGen = TruthGenerator(sensorConfig); 
@@ -103,7 +103,7 @@ else
     evaluator = PerformanceEvaluator();
 
     % Load Standard Trajectories
-    ScenarioGenerator.load_default(truthGen);
+    ScenarioGenerator.load_scenario3(truthGen);
 
     % Initialize Plotter if enabled
     if sim.enablePlotting
