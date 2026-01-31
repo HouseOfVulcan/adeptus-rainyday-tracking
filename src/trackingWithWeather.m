@@ -181,8 +181,11 @@ end
 numTracks = 500;
 vol  = 1e9;
 beta = 1e-14;
-if (enableDegradation) pd = 0.7;
-else pd = 0.9; end
+if (enableDegradation) 
+    pd = 0.7;
+else 
+    pd = 0.9; 
+end
 
 %% Scenario-dependent knobs (gating + clutter assumptions)
 % gate:
@@ -209,6 +212,10 @@ else
     % IDEAL = essentially "near-zero clutter assumption"
     farGNN  = 1e-6;
     farMHT  = 1e-6;
+    farJPDA = 1e-6;
+end
+
+fprintf("[Config] Scenario=%s | gate=%.1f | farGNN=%.2e | farMHT=%.2e | farJPDA=%.2e | pd=%.2f | vol=%.2e | beta=%.2e\n", ...
     ternary(enableDegradation,"RAINY","IDEAL"), gate, farGNN, farMHT, farJPDA, pd, vol, beta);
 
 %% TOMHT-only thresholds (score-based track management)
