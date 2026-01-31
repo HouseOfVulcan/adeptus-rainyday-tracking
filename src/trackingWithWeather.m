@@ -32,6 +32,10 @@
 
 clc; clear; close all;
 
+% Add directories to path
+addpath(genpath(fullfile(pwd, 'helpers')));
+addpath(genpath(fullfile(pwd, 'visualization')));
+
 %% ---------- Scenario Toggle ----------
 % enableDegradation:
 %   false -> IDEAL scenario (baseline MathWorks-like conditions)
@@ -205,10 +209,6 @@ else
     % IDEAL = essentially "near-zero clutter assumption"
     farGNN  = 1e-6;
     farMHT  = 1e-6;
-    farJPDA = 1e-6;
-end
-
-fprintf("Scenario: %s | gate=%.2f | farGNN=%.3g | farMHT=%.3g | farJPDA=%.3g | pd=%.2f | vol=%.3g | beta=%.3g\n\n", ...
     ternary(enableDegradation,"RAINY","IDEAL"), gate, farGNN, farMHT, farJPDA, pd, vol, beta);
 
 %% TOMHT-only thresholds (score-based track management)
