@@ -120,7 +120,6 @@ Our solution: Compare multiple tracking approaches (GNN, JPDA, TOMHT) paired wit
   - Tuned for the same high-speed scenario
 
 #### **Visualization & Utilities**
-- **`plotScenarioAndDetections.m`** - 2D scatter plot of truth + detections
 - **`plotInitialScenario.m`** - 3D animated visualization of scenario evolution
 - Helper functions: `weatherSeverity()`, `gateDetectionsROI()`, `falseMeasInSurveillanceVolume()`
 
@@ -247,7 +246,6 @@ maxBranches = 3;              % Hypothesis limit per track
   - Estimated tracks (colored lines with velocity vectors)
   - Track labels for debugging
 
-- **2D scatter** (`plotScenarioAndDetections.m`) - Top-down view of all detections
 
 - **3D animation** (`plotInitialScenario.m`) - Animated 3D scenario evolution
 
