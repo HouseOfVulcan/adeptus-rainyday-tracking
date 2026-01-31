@@ -251,6 +251,10 @@ maxBranches = 3;              % Hypothesis limit per track
 
 - **3D animation** (`plotInitialScenario.m`) - Animated 3D scenario evolution
 
+### Regenerating Saved Artifacts
+
+Running `trackingWithWeather.m` can write generated artifacts to `cache/`, `results/`, `Plots/`, `images/`, and `html/`. These outputs are derived from the scenario run and are intentionally gitignored, so re-run the script to recreate them as needed.
+
 ---
 
 ## Current Status & Next Steps
