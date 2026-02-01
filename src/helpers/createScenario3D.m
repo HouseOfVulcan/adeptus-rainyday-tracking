@@ -140,68 +140,63 @@ function addAircraft(scenario, T, idx)
 %   - Whether the radar sector scan sees both simultaneously
 % -------------------------------------------------------------------------
 
-% Example speed conversion: 300 km/h to m/s
-spd = 300*1e3/3600; %#ok<NASGU> % currently unused, but kept for reference
+    switch idx
+        case 1
+            % Pattern 1: straight segment, then climb, then turn
+            % Times scale with T
+            tNorm = [0 0.3 0.5 0.8 1.0];  % Normalized times (0 to 1)
+            t = tNorm * T;                 % Scale to actual duration
+            
+            wp = [ ...
+                -2000    -20000   -3000;
+                 0       -20000   -3000;
+                 800     -19800   -3300;
+                 1200    -19000   -3600;
+                 1500    -18000   -4000];
 
-switch idx
-    case 1
-        % Pattern 1: straight segment, then climb, then turn
-        %
-        % Climb note in NED:
-        %   -3000 -> -4000 means going UP in altitude (more negative Down)
-        t = [0 15 25 40 T]';
-        wp = [ ...
-            -2000    -20000   -3000;   % start (~3 km altitude)
-             0       -20000   -3000;   % straight north
-             800     -19800   -3300;   % climb to ~4 km
-             1200    -19000   -3600;   % turn / move east
-             1500    -18000   -4000];
+            vel = zeros(numel(t), 3);
+            for k = 1:numel(t)-1
+                dt = t(k+1) - t(k);
+                vel(k,:) = (wp(k+1,:) - wp(k,:)) / dt;
+            end
+            vel(end,:) = vel(end-1,:);
 
-        % Compute piecewise-constant velocities from waypoint differences
-        vel = zeros(numel(t),3);
-        for k=1:numel(t)-1
-            dt = t(k+1)-t(k);
-            v = (wp(k+1,:)-wp(k,:))/dt;
-            vel(k,:) = v;
-        end
-        vel(end,:) = vel(end-1,:);
+        case 2
+            % Pattern 2: opposite direction with gentle descent
+            tNorm = [0 0.33 0.67 1.0 1.0];  % Normalized times
+            t = tNorm * T;
+            
+            wp = [ ...
+                2000     -19000   -3500;
+                800      -19000   -3500;
+                200      -19500   -3400;
+                -600     -20000   -3300;
+                -1200    -20500   -3200];
 
-    case 2
-        % Pattern 2: opposite-ish direction with a gentle descent
-        %
-        % Descent note in NED:
-        %   -3500 -> -3200 means going DOWN (less negative Down)
-        t = [0 15 30 45 T]';
-        wp = [ ...
-            2000     -19000   -3500;
-            800      -19000   -3500;
-            200      -19500   -3400;  % descend
-            -600     -20000   -3300;
-            -1200    -20500   -3200];
+            vel = zeros(numel(t), 3);
+            for k = 1:numel(t)-1
+                dt = t(k+1) - t(k);
+                if dt > 0
+                    vel(k,:) = (wp(k+1,:) - wp(k,:)) / dt;
+                else
+                    vel(k,:) = vel(k-1,:);  % Avoid division by zero
+                end
+            end
+            vel(end,:) = vel(end-1,:);
 
-        vel = zeros(numel(t),3);
-        for k=1:numel(t)-1
-            dt = t(k+1)-t(k);
-            vel(k,:) = (wp(k+1,:)-wp(k,:))/dt;
-        end
-        vel(end,:) = vel(end-1,:);
+        otherwise
+            % Generic fallback
+            t = [0 T]';
+            wp = [ ...
+                -1500 + 3000*rand,  -20500 + 3000*rand,  -2500 - 1500*rand;
+                 1500 - 3000*rand,  -20500 + 3000*rand,  -2500 - 1500*rand];
+            vel = repmat((wp(2,:) - wp(1,:)) / T, numel(t), 1);
+    end
 
-    otherwise
-        % Generic fallback pattern: random-ish straight path
-        % (Useful for quick multi-target scaling tests)
-        t = [0 T]';
-        wp = [ ...
-            -1500 + 3000*rand,  -20500 + 3000*rand,  -2500 - 1500*rand;
-             1500 - 3000*rand,  -20500 + 3000*rand,  -2500 - 1500*rand];
-
-        % Constant velocity over entire duration
-        vel = repmat((wp(2,:)-wp(1,:))/T, numel(t), 1);
-end
-
-% Create target platform and assign its trajectory
-tgt = platform(scenario); %#ok<NASGU>
-tgt.Trajectory = waypointTrajectory( ...
-    'Waypoints', wp, ...
-    'TimeOfArrival', t, ...
-    'Velocities', vel);
+    % Create target platform
+    tgt = platform(scenario);
+    tgt.Trajectory = waypointTrajectory( ...
+        'Waypoints', wp, ...
+        'TimeOfArrival', t, ...
+        'Velocities', vel);
 end
