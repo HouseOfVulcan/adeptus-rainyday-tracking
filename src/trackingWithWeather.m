@@ -1,24 +1,21 @@
-% -------------------------------------------------------------------------
-% Tracking Closely Spaced Targets Under Ambiguity
+
+function trackingWithWeather(configName)
+% trackingWithWeather: Top-level driver for tracking + degradation experiments.
 %
 % PURPOSE
-%   Run a consistent simulation + tracking pipeline to compare:
-%     - Trackers: GNN, TOMHT, JPDA
-%     - Motion models: CV vs IMM
-%   across two scenarios:
-%     - IDEAL  : clean detections, low clutter assumptions
-%     - RAINY  : degraded detections, higher ambiguity + clutter assumptions
+%   Compare tracking performance across multiple tracker types (GNN, TOMHT, JPDA)
+%   and motion models (CV, IMM) under ideal and degraded (rainy) conditions.
+%
+% WORKFLOW
+%   1. Load configuration (scenario parameters)
+%   2. Create scenario and generate/load detections
+%   3. Configure tracker parameters based on degradation mode
+%   4. Run all tracker combinations and collect metrics
 %
 % BASELINE SOURCE
 %   Adapted from MathWorks example:
 %   https://www.mathworks.com/help/fusion/ug/tracking-closely-spaced-targets-under-ambiguity.html
-%
-% PROJECT EXTENSIONS 
-%   - Scenario toggle (IDEAL vs RAINY) that changes "knobs" consistently
-%   - Automated tracker runs for all combinations (tracker + motion model)
-%   - Automated JPDA tracker tuning for ideal/nonideal scenarios
-%   - Reporting: track-level and truth-level performance metrics + timing
-%
+% 
 % NOTES FOR TEAM
 %   - This is the top-level driver script. All "real work" happens in helpers:
 %       helperCreateScenario3D   -> scenario definition (truth + radar)
@@ -27,54 +24,30 @@
 %       initCVFilter/initIMMFilter -> defines the filter used per track
 %   - If something looks "off", most debugging starts in helperRunDetections
 %     (time stamps, measurement noise, clutter injection, etc.).
-%
-% -------------------------------------------------------------------------
 
-clc; clear; close all;
+arguments
+    configName (1,1) string = "default"
+end
 
-% Add directories to path
-addpath(genpath(fullfile(pwd, 'src', 'helpers')));
-addpath(genpath(fullfile(pwd, 'src', 'visualization')));
+clc; close all;
 
-% ================= SCENARIO SELECT (NOW FROM CONFIG) ==================
-% Load Configuration
+%% Setup
+addProjectPaths();
+
 cfg = load_config("default");
-
 scenarioMode  = cfg.scenario.mode;        % "2D" or "3D" from config
-NumTargets    = cfg.scenario.num_targets; % from config
-SceneDuration = cfg.scenario.duration_s;  % from config
+numTargets    = cfg.scenario.num_targets; % from config
+sceneDuration = cfg.scenario.duration_s;  % from config
 
-%% ---------- Scenario Toggle ----------
-% enableDegradation:
-%   false -> IDEAL scenario (baseline MathWorks-like conditions)
-%   true  -> RAINY scenario  (degraded detection conditions)
-%
-% This single flag should be the ONLY thing you need to flip when running
-% "ideal vs rainy day" experiments. All scenario-dependent thresholds are
-% derived from it below.
-enableDegradation = true;
-% ------------------------------------
+%% Scenario Configurations
+enableDegradation = true; % false = IdEAL, true = RAINY
 
 fprintf("\n==============================\n");
 fprintf(" RUN START | Scenario = %s\n", ternary(enableDegradation,"RAINY","IDEAL"));
 fprintf("==============================\n\n");
 
-%% Create scenario + detections
-%------------------- Default Scenario------------------------------
-% To demonstrate a case where sensor reports are ambiguously assigned to
-% tracks, you create a simple scenario. In this scenario, a single radar
-% object, located at the origin (not shown), scans a small region about 20
-% km from the radar. Initially, the radar reports about two detections per
-% scan. When the detections are coming from a region around the X = 0, Y =
-% -20 km position, the radar reports a single detection per scan for a
-% while, followed by two radar detections reported from around Y = -19.5km
-% and toward the sensor (up).
-% ------------------------------------------------------------------
+%% Generate/Load Detections
 % 
-% Two ways to define the scenario:
-%   helperCreateScenario      -> original reference scenario
-%   helperCreateScenario3D    -> our configurable scenario builder
-%
 % dataLog is the key output:
 %   dataLog.Time        -> time stamps per scan/update
 %   dataLog.Truth       -> ground truth platform states
@@ -85,15 +58,7 @@ fprintf("==============================\n\n");
 %     - detection dropouts (effective Pd)
 %     - inflated measurement noise
 %     - added clutter (false alarms)
-%
-% scenario = helperCreateScenario;
-% dataLog  = helperRunDetections(scenario, enableDegradation);
 
-%scenario = helperCreateScenario3D("NumTargets",4,"SceneDuration",60);
-%dataLog = helperRunDetections(scenario, enableDegradation);
-
-%% Create scenario + detections
-% ================= DETECTION SOURCE =================
 useSavedDataLog = false;  % true = load, false = generate+save
 
 dataLogFile = fullfile(pwd, "cache", "myRun1.mat");
@@ -103,36 +68,25 @@ dataLogDir  = fileparts(dataLogFile);
 if ~exist(dataLogDir, "dir")
     mkdir(dataLogDir);
 end
-% ====================================================
-
-% ================= SCENARIO SELECT ==================
-% scenarioMode = "3D";   % "2D" uses helperCreateScenario
-                        % "3D" uses helperCreateScenario3D
-% NumTargets    = 4;     % only used for 3D
-% SceneDuration = 60;    % only used for 3D
-% ====================================================
 
 if useSavedDataLog
-    load(dataLogFile,"dataLog");
-    fprintf("[replay] Loaded dataLog from %s\n", dataLogFile);
-
+    load(dataLogFile, "dataLog");
+    fprintf("[INFO] Loaded dataLog from %s\n", dataLogFile);
 else
-    % ---- pick scenario builder ----
     if scenarioMode == "3D"
-        scenario = createScenario3D("NumTargets",NumTargets,"SceneDuration",SceneDuration);
+        scenario = createScenario3D( ...
+            "NumTargets", numTargets, ...
+            "SceneDuration", sceneDuration);
     else
-        fprintf("That Doesn't Exist Anymore")
-        return;
+        error("Only 3D scenarios are currently supported.");
     end
 
-    dataLog = helperRunDetections(scenario, enableDegradation);
+    dataLog = runDetections(scenario, enableDegradation);
 
-    if ~exist("cache","dir"), mkdir("cache"); end
-    save(dataLogFile,"dataLog","-v7.3");
-    fprintf("[record] Saved dataLog to %s\n", dataLogFile);
+    save(dataLogFile, "dataLog", "-v7.3");
+    fprintf("[INFO] Saved dataLog to %s\n", dataLogFile);
 end
 
-% Visualization: plot of truth + detections.
 plotInitialScenario(dataLog);
 
 %% Quick stats on detection count per scan
@@ -143,38 +97,6 @@ nPerScan = cellfun(@numel, dataLog.Detections);
 fprintf("Detections/scan stats: min=%g, mean=%.2f, max=%g\n", ...
     min(nPerScan), mean(nPerScan), max(nPerScan));
 
-
-% Export to generate detection file for previous capstone Kalman Filter
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
-% 
-% 
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
-% if enableDegradation
-%     exportMateoV5FromDataLog(dataLog, "MateoV5_nonideal.txt", ...
-%         'Mode', "range", ...
-%         'PickRule', "closestToPrev", ...
-%         'WriteMissing', "hold", ...
-%         'MaxJumpMeters', 200);
-% else 
-%     exportMateoV5FromDataLog(dataLog, "MateoV5_ideal.txt", ...
-%     'Mode', "range", ...
-%     'PickRule', "closestToPrev", ...
-%     'WriteMissing', "hold", ...
-%     'MaxJumpMeters', 200);
-% end 
-
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
-
-
-% exportMateoV5FromDataLog(dataLog, "MateoV5_nonideal.txt", ...
-%     'WriteMissing', "hold", ...
-%     'MaxJumpMeters', 200);
-% 
-% exportMateoV5FromDataLog(dataLog, "MateoV5_ideal.txt", ...
-%     'WriteMissing', "hold", ...
-%     'MaxJumpMeters', 200);
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 
 %% Global tracker knobs (shared baseline assumptions)
 % These parameters influence track initiation/maintenance and association.
@@ -195,8 +117,9 @@ fprintf("Detections/scan stats: min=%g, mean=%.2f, max=%g\n", ...
 %   DetectionProbability - assumed probability a target is detected each scan.
 %   If this is far from reality, track scoring can behave poorly.
 numTracks = 500;
-vol  = 1e9;
-beta = 1e-14;
+volume       = 1e9;
+beta      = 1e-14;
+
 if (enableDegradation) 
     pd = 0.7;
 else 
@@ -214,77 +137,45 @@ end
 %   These are not "truth"; they are the tracker's internal clutter model.
 %   If FAR is set too low in a cluttered environment, some trackers can
 %   over-trust measurements and diverge or fail initiation logic.
-if enableDegradation
-    gate = 35;
 
+
+if enableDegradation
     % Under degradation, we assume more false alarms than ideal.
     % (We keep these relatively moderate so association isn't totally starved.)
+    gate = 35;
     farGNN  = 1e-2;
     farMHT  = 1e-3;
     farJPDA = 1e-3;
-else
-    gate = 45;
 
-    % IDEAL = essentially "near-zero clutter assumption"
-    farGNN  = 1e-6;
-    farMHT  = 1e-6;
-    farJPDA = 1e-6;
-end
-
-fprintf("[Config] Scenario=%s | gate=%.1f | farGNN=%.2e | farMHT=%.2e | farJPDA=%.2e | pd=%.2f | vol=%.2e | beta=%.2e\n", ...
-    ternary(enableDegradation,"RAINY","IDEAL"), gate, farGNN, farMHT, farJPDA, pd, vol, beta);
-
-%% TOMHT-only thresholds (score-based track management)
-% TOMHT uses score logic internally to decide when a hypothesis is "real".
-% ConfirmationThreshold:
-%   score level needed before a track is considered confirmed
-% DeletionThreshold:
-%   score level below which tracks are deleted
-if enableDegradation
     confirmThresh = 30;
     deleteThresh = -15;
-else
-    confirmThresh = 20;
-    deleteThresh = -5;
-end
-
-%% TOMHT scenario-dependent knobs
-% tomhtThresh:
-%   Three-stage assignment threshold used by TOMHT (varies by dimension/state).
-%   We scale relative to gate for simplicity and consistent tuning.
-%
-% maxBranches:
-%   Limits branching factor of hypotheses.
-%   Higher = can represent more ambiguity, but costs time and may explode.
-if enableDegradation
     tomhtThresh = [0.2, 5, 5] * gate;
     maxBranches = 3;
-else
-    tomhtThresh = [0.2, 1, 1] * gate;
-    maxBranches = 5;
-end
-
-%% JPDA scenario-dependent knobs (initiation + anti-spam controls)
-% JPDA has different "initiation" behavior than GNN/TOMHT.
-% In clutter/degradation, it often fails to start tracks unless
-% NewTargetDensity (betaJPDA) is high enough.
-%
-% NOTE:
-%   Raising betaJPDA helps initiation but can create track spam.
-%   We control spam primarily by limiting MaxNumTracks for JPDA.
-if enableDegradation
+    
     betaJPDA    = 1e-11;        % encourage initiation (tune 1e-12..1e-10)
     gateJPDA    = gate + 10;    % looser gate helps association under clutter
     timeTolJPDA = 0.05;         % detections already snapped to scan times
-
     numTracksJPDA = 200;        % cap so it doesn't explode
+
 else
+    gate = 45;
+    farGNN  = 1e-6;
+    farMHT  = 1e-6;
+    farJPDA = 1e-6;
+
+    confirmThresh = 20;
+    deleteThresh = -5;
+    tomhtThresh = [0.2, 1, 1] * gate;
+    maxBranches = 5;
+
     betaJPDA    = beta;
     gateJPDA    = gate;
     timeTolJPDA = 0.05;
-
     numTracksJPDA = numTracks;
 end
+
+fprintf("[Config] Scenario=%s | gate=%.1f | farGNN=%.2e | farMHT=%.2e | farJPDA=%.2e | pd=%.2f | volume=%.2e | beta=%.2e\n", ...
+    ternary(enableDegradation,"RAINY","IDEAL"), gate, farGNN, farMHT, farJPDA, pd, volume, beta);
 
 %% ============ GNN + CV ============
 % GNN: Global Nearest Neighbor (hard assignment)
@@ -298,7 +189,7 @@ tracker = trackerGNN( ...
     'TrackLogic', 'Score', ...
     'DetectionProbability', pd, ...
     'FalseAlarmRate', farGNN, ...
-    'Volume', vol, ...
+    'Volume', volume, ...
     'Beta', beta);
 
 % helperRunTracker does:
@@ -320,7 +211,7 @@ tracker = trackerGNN( ...
     'TrackLogic', 'Score', ...
     'DetectionProbability', pd, ...
     'FalseAlarmRate', farGNN, ...
-    'Volume', vol, ...
+    'Volume', volume, ...
     'Beta', beta);
 
 [trackSummary, truthSummary, trackMetrics, truthMetrics, timeGNNIMM] = helperRunTracker(dataLog, tracker, false);
@@ -337,7 +228,7 @@ tracker = trackerTOMHT( ...
     'AssignmentThreshold', tomhtThresh, ...
     'DetectionProbability', pd, ...
     'FalseAlarmRate', farMHT, ...
-    'Volume', vol, ...
+    'Volume', volume, ...
     'Beta', beta, ...
     'ConfirmationThreshold', confirmThresh, ...
     'DeletionThreshold', deleteThresh, ...
@@ -359,7 +250,7 @@ tracker = trackerTOMHT( ...
     'AssignmentThreshold', tomhtThresh, ...
     'DetectionProbability', pd, ...
     'FalseAlarmRate', farMHT, ...
-    'Volume', vol, ...
+    'Volume', volume, ...
     'Beta', beta, ...
     'ConfirmationThreshold', confirmThresh, ...
     'DeletionThreshold', deleteThresh, ...
@@ -383,7 +274,7 @@ tracker = trackerJPDA( ...
     'AssignmentThreshold', gateJPDA, ...
     'TrackLogic', 'Integrated', ...
     'DetectionProbability', pd, ...
-    'ClutterDensity', farJPDA/vol, ...
+    'ClutterDensity', farJPDA/volume, ...
     'NewTargetDensity', betaJPDA, ...
     'TimeTolerance', timeTolJPDA);
 
@@ -400,7 +291,7 @@ tracker = trackerJPDA( ...
     'AssignmentThreshold', gateJPDA, ...
     'TrackLogic', 'Integrated', ...
     'DetectionProbability', pd, ...
-    'ClutterDensity', farJPDA/vol, ...
+    'ClutterDensity', farJPDA/volume, ...
     'NewTargetDensity', betaJPDA, ...
     'TimeTolerance', timeTolJPDA);
 
@@ -411,6 +302,7 @@ disp(trackMetrics); disp(truthMetrics);
 fprintf("\n==============================\n");
 fprintf(" RUN END | Scenario = %s\n", ternary(enableDegradation,"RAINY","IDEAL"));
 fprintf("==============================\n\n");
+end
 
 %% -------- Local helper: ternary --------
 % Small utility so we can write:
@@ -423,3 +315,10 @@ else
     out = b;
 end
 end
+
+function addProjectPaths()
+root = pwd;
+addpath(genpath(fullfile(root, "src", "helpers")));
+addpath(genpath(fullfile(root, "src", "visualization")));
+end
+
