@@ -33,8 +33,8 @@
 clc; clear; close all;
 
 % Add directories to path
-addpath(genpath(fullfile(pwd, 'helpers')));
-addpath(genpath(fullfile(pwd, 'visualization')));
+addpath(genpath(fullfile(pwd, 'src', 'helpers')));
+addpath(genpath(fullfile(pwd, 'src', 'visualization')));
 
 %% ---------- Scenario Toggle ----------
 % enableDegradation:
@@ -86,12 +86,13 @@ fprintf("==============================\n\n");
 
 %% Create scenario + detections
 % ================= DETECTION SOURCE =================
-useSavedDataLog = true;  % true = load, false = generate+save
+useSavedDataLog = false;  % true = load, false = generate+save
 
-dataLogFile = "cache/myRun1.mat";  % default
+dataLogFile = fullfile(pwd, "cache", "myRun1.mat");
 dataLogDir  = fileparts(dataLogFile);
 
-if ~isempty(dataLogDir) && ~exist(dataLogDir, "dir")
+% Create directory if it doesn't exist
+if ~exist(dataLogDir, "dir")
     mkdir(dataLogDir);
 end
 % ====================================================
@@ -110,7 +111,7 @@ if useSavedDataLog
 else
     % ---- pick scenario builder ----
     if scenarioMode == "3D"
-        scenario = helperCreateScenario3D("NumTargets",NumTargets,"SceneDuration",SceneDuration);
+        scenario = createScenario3D("NumTargets",NumTargets,"SceneDuration",SceneDuration);
     else
         scenario = helperCreateScenario();
     end
@@ -140,19 +141,19 @@ fprintf("Detections/scan stats: min=%g, mean=%.2f, max=%g\n", ...
 % 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
-if enableDegradation
-    exportMateoV5FromDataLog(dataLog, "MateoV5_nonideal.txt", ...
-        'Mode', "range", ...
-        'PickRule', "closestToPrev", ...
-        'WriteMissing', "hold", ...
-        'MaxJumpMeters', 200);
-else 
-    exportMateoV5FromDataLog(dataLog, "MateoV5_ideal.txt", ...
-    'Mode', "range", ...
-    'PickRule', "closestToPrev", ...
-    'WriteMissing', "hold", ...
-    'MaxJumpMeters', 200);
-end 
+% if enableDegradation
+%     exportMateoV5FromDataLog(dataLog, "MateoV5_nonideal.txt", ...
+%         'Mode', "range", ...
+%         'PickRule', "closestToPrev", ...
+%         'WriteMissing', "hold", ...
+%         'MaxJumpMeters', 200);
+% else 
+%     exportMateoV5FromDataLog(dataLog, "MateoV5_ideal.txt", ...
+%     'Mode', "range", ...
+%     'PickRule', "closestToPrev", ...
+%     'WriteMissing', "hold", ...
+%     'MaxJumpMeters', 200);
+% end 
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 
