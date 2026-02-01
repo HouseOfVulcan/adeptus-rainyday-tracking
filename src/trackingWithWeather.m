@@ -36,6 +36,14 @@ clc; clear; close all;
 addpath(genpath(fullfile(pwd, 'src', 'helpers')));
 addpath(genpath(fullfile(pwd, 'src', 'visualization')));
 
+% ================= SCENARIO SELECT (NOW FROM CONFIG) ==================
+% Load Configuration
+cfg = load_config("default");
+
+scenarioMode  = cfg.scenario.mode;        % "2D" or "3D" from config
+NumTargets    = cfg.scenario.num_targets; % from config
+SceneDuration = cfg.scenario.duration_s;  % from config
+
 %% ---------- Scenario Toggle ----------
 % enableDegradation:
 %   false -> IDEAL scenario (baseline MathWorks-like conditions)
@@ -86,7 +94,7 @@ fprintf("==============================\n\n");
 
 %% Create scenario + detections
 % ================= DETECTION SOURCE =================
-useSavedDataLog = true;  % true = load, false = generate+save
+useSavedDataLog = false;  % true = load, false = generate+save
 
 dataLogFile = fullfile(pwd, "cache", "myRun1.mat");
 dataLogDir  = fileparts(dataLogFile);
@@ -98,10 +106,10 @@ end
 % ====================================================
 
 % ================= SCENARIO SELECT ==================
-scenarioMode = "3D";   % "2D" uses helperCreateScenario
+% scenarioMode = "3D";   % "2D" uses helperCreateScenario
                         % "3D" uses helperCreateScenario3D
-NumTargets    = 4;     % only used for 3D
-SceneDuration = 60;    % only used for 3D
+% NumTargets    = 4;     % only used for 3D
+% SceneDuration = 60;    % only used for 3D
 % ====================================================
 
 if useSavedDataLog
@@ -113,7 +121,8 @@ else
     if scenarioMode == "3D"
         scenario = createScenario3D("NumTargets",NumTargets,"SceneDuration",SceneDuration);
     else
-        scenario = helperCreateScenario();
+        fprintf("That Doesn't Exist Anymore")
+        return;
     end
 
     dataLog = helperRunDetections(scenario, enableDegradation);

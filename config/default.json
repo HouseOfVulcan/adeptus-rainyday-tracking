@@ -1,7 +1,8 @@
+
 {
   "scenario": {
     "mode": "3D",
-    "num_targets": 4,
-    "duration_s": 60
+    "num_targets": 1,
+    "duration_s": 30
   }
 }
