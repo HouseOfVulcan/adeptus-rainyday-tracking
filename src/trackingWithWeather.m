@@ -86,7 +86,7 @@ fprintf("==============================\n\n");
 
 %% Create scenario + detections
 % ================= DETECTION SOURCE =================
-useSavedDataLog = false;  % true = load, false = generate+save
+useSavedDataLog = true;  % true = load, false = generate+save
 
 dataLogFile = fullfile(pwd, "cache", "myRun1.mat");
 dataLogDir  = fileparts(dataLogFile);
