@@ -3,9 +3,9 @@
 *.m~
 
 # Generated data/cache/results
-cache/
-results/
-Plots/
+cache/*
+results/*
+plots/*
 
 # Large generated artifacts
 *.mat
@@ -15,3 +15,5 @@ images/*.png
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+notes
