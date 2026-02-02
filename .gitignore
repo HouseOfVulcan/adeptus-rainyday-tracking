@@ -17,3 +17,6 @@ images/*.png
 Thumbs.db
 
 notes
+
+# vscode config files
+.vscode
