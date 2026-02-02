@@ -46,7 +46,6 @@ function dataLog = helperRunDetections(scenario, enableDegradation)
 if nargin < 2
     enableDegradation = false;   % Default to IDEAL
 end
-fprintf("enableDegradation = %d\n", enableDegradation);
 
 % In this scenario layout:
 %   scenario.Platforms{1} -> radar tower platform

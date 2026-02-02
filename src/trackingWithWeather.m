@@ -34,34 +34,39 @@ clc; close all;
 %% Setup
 addProjectPaths();
 
-cfg = load_config("default");
-scenarioMode  = cfg.scenario.mode;        % "2D" or "3D" from config
-numTargets    = cfg.scenario.num_targets; % from config
-sceneDuration = cfg.scenario.duration_s;  % from config
+%% Load Configuration
+config = load_config(configName);            % JSON loader from config dir
 
-%% Scenario Configurations
-enableDegradation = true; % false = IdEAL, true = RAINY
+%% Extract Scenario Parameters
+scenarioMode  = config.scenario.mode;        
+numTargets    = config.scenario.num_targets; 
+sceneDuration = config.scenario.duration_s;  
+
+%% Extract Degradation Setting
+enableDegradation = config.degradation.enabled;
+
+%% Extract Global Tracker Parameters
+numTracks = config.tracker_global.max_num_tracks;
+volume    = config.tracker_global.volume;
+beta      = config.tracker_global.beta;
+
+% Extract active tracker parameters (already selected by load_config)
+params = config.active_params;
+pd = params.pd;
 
 fprintf("\n==============================\n");
 fprintf(" RUN START | Scenario = %s\n", ternary(enableDegradation,"RAINY","IDEAL"));
 fprintf("==============================\n\n");
 
 %% Generate/Load Detections
-% 
-% dataLog is the key output:
-%   dataLog.Time        -> time stamps per scan/update
-%   dataLog.Truth       -> ground truth platform states
-%   dataLog.Detections  -> detections per scan (cell array of objectDetections)
-%
 % IMPORTANT:
 %   helperRunDetections is where "RAINY" degradation is injected:
 %     - detection dropouts (effective Pd)
 %     - inflated measurement noise
 %     - added clutter (false alarms)
 
-useSavedDataLog = false;  % true = load, false = generate+save
-
-dataLogFile = fullfile(pwd, "cache", "myRun1.mat");
+useSavedDataLog = config.data_logging.use_saved_datalog;
+dataLogFile = fullfile(pwd, config.data_logging.datalog_file); % Look at this
 dataLogDir  = fileparts(dataLogFile);
 
 % Create directory if it doesn't exist
@@ -83,221 +88,237 @@ else
 
     dataLog = runDetections(scenario, enableDegradation);
 
-    save(dataLogFile, "dataLog", "-v7.3");
-    fprintf("[INFO] Saved dataLog to %s\n", dataLogFile);
+    if config.data_logging.save_after_generation
+        save(dataLogFile, "dataLog", "-v7.3");
+        fprintf("[INFO] Saved dataLog to %s\n", dataLogFile);
+    end
 end
 
-plotInitialScenario(dataLog);
+if config.output.plot_initial_scenario
+    plotInitialScenario(dataLog);
+end
 
 %% Quick stats on detection count per scan
 % Helps confirm degradation is actually happening:
 %   IDEAL -> generally stable count close to number of targets
 %   RAINY -> increased variability (clutter + dropouts)
-nPerScan = cellfun(@numel, dataLog.Detections);
-fprintf("Detections/scan stats: min=%g, mean=%.2f, max=%g\n", ...
-    min(nPerScan), mean(nPerScan), max(nPerScan));
-
-
-%% Global tracker knobs (shared baseline assumptions)
-% These parameters influence track initiation/maintenance and association.
-%
-% MaxNumTracks:
-%   Upper bound on how many tracks can exist at once (prevents blow-up)
-%
-% Volume:
-%   Assumed surveillance volume (m^3). Used with FAR and Beta.
-%   Bigger volume + same FAR implies fewer false alarms per unit volume.
-%
-% Beta:
-%   New track "birth" intensity / expected new target rate (model-dependent).
-%   Too low -> tracker refuses to initiate tracks.
-%   Too high -> tracker spawns too many tracks (especially under clutter).
-%
-% pd:
-%   DetectionProbability - assumed probability a target is detected each scan.
-%   If this is far from reality, track scoring can behave poorly.
-numTracks = 500;
-volume       = 1e9;
-beta      = 1e-14;
-
-if (enableDegradation) 
-    pd = 0.7;
-else 
-    pd = 0.9; 
-end
-
-%% Scenario-dependent knobs (gating + clutter assumptions)
-% gate:
-%   Association threshold. Larger = more permissive; smaller = stricter.
-%   Under heavy clutter, a too-large gate increases wrong associations.
-%   Under low SNR / noisy measurement, too-small gate loses the target.
-%
-% farX:
-%   FalseAlarmRate assumptions for each tracker type.
-%   These are not "truth"; they are the tracker's internal clutter model.
-%   If FAR is set too low in a cluttered environment, some trackers can
-%   over-trust measurements and diverge or fail initiation logic.
-
-
-if enableDegradation
-    % Under degradation, we assume more false alarms than ideal.
-    % (We keep these relatively moderate so association isn't totally starved.)
-    gate = 35;
-    farGNN  = 1e-2;
-    farMHT  = 1e-3;
-    farJPDA = 1e-3;
-
-    confirmThresh = 30;
-    deleteThresh = -15;
-    tomhtThresh = [0.2, 5, 5] * gate;
-    maxBranches = 3;
-    
-    betaJPDA    = 1e-11;        % encourage initiation (tune 1e-12..1e-10)
-    gateJPDA    = gate + 10;    % looser gate helps association under clutter
-    timeTolJPDA = 0.05;         % detections already snapped to scan times
-    numTracksJPDA = 200;        % cap so it doesn't explode
-
-else
-    gate = 45;
-    farGNN  = 1e-6;
-    farMHT  = 1e-6;
-    farJPDA = 1e-6;
-
-    confirmThresh = 20;
-    deleteThresh = -5;
-    tomhtThresh = [0.2, 1, 1] * gate;
-    maxBranches = 5;
-
-    betaJPDA    = beta;
-    gateJPDA    = gate;
-    timeTolJPDA = 0.05;
-    numTracksJPDA = numTracks;
+if config.output.print_diagnostics
+    nPerScan = cellfun(@numel, dataLog.Detections);
+    fprintf("Detections/scan stats: min=%g, mean=%.2f, max=%g\n", ...
+        min(nPerScan), mean(nPerScan), max(nPerScan));
 end
 
 fprintf("[Config] Scenario=%s | gate=%.1f | farGNN=%.2e | farMHT=%.2e | farJPDA=%.2e | pd=%.2f | volume=%.2e | beta=%.2e\n", ...
-    ternary(enableDegradation,"RAINY","IDEAL"), gate, farGNN, farMHT, farJPDA, pd, volume, beta);
+    ternary(enableDegradation,"RAINY","IDEAL"), params.gate, params.far_gnn, params.far_mht, params.far_jpda, pd, volume, beta);
+
+%% Run all enabled trackers
+% This structure makes it easy to enable/disable trackers via config
+
+results = struct();
 
 %% ============ GNN + CV ============
-% GNN: Global Nearest Neighbor (hard assignment)
-% CV:  Constant Velocity filter initialization
-fprintf("\n============ GNN + CV ============\n");
-tracker = trackerGNN( ...
-    'FilterInitializationFcn', @initCVFilter, ...
-    'MaxNumTracks', numTracks, ...
-    'MaxNumSensors', 1, ...
-    'AssignmentThreshold', gate, ...
-    'TrackLogic', 'Score', ...
-    'DetectionProbability', pd, ...
-    'FalseAlarmRate', farGNN, ...
-    'Volume', volume, ...
-    'Beta', beta);
+if config.trackers_to_run.gnn_cv
+    fprintf("\n============ GNN + CV ============\n");
+    tracker = trackerGNN( ...
+        'FilterInitializationFcn', @initCVFilter, ...
+        'MaxNumTracks', numTracks, ...
+        'MaxNumSensors', 1, ...
+        'AssignmentThreshold', params.gate, ...
+        'TrackLogic', 'Score', ...
+        'DetectionProbability', pd, ...
+        'FalseAlarmRate', params.far_gnn, ...
+        'Volume', volume, ...
+        'Beta', beta);
 
-% helperRunTracker does:
-%   - step through dataLog detections
-%   - call tracker(detections, time)
-%   - compute metrics vs truth
-[trackSummary, truthSummary, trackMetrics, truthMetrics, timeGNNCV] = helperRunTracker(dataLog, tracker, false);
-disp(trackSummary); disp(truthSummary);
-disp(trackMetrics); disp(truthMetrics);
+    % helperRunTracker does:
+    %   - step through dataLog detections
+    %   - call tracker(detections, time)
+    %   - compute metrics vs truth
+    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
+
+    results.gnn_cv.trackSummary = trackSummary;
+    results.gnn_cv.truthSummary = truthSummary;
+    results.gnn_cv.trackMetrics = trackMetrics;
+    results.gnn_cv.truthMetrics = truthMetrics;
+    results.gnn_cv.time = time;
+
+    if config.output.print_diagnostics
+        disp(trackSummary); disp(truthSummary);
+        disp(trackMetrics); disp(truthMetrics);
+    end
+end
 
 %% ============ GNN + IMM ============
-% IMM: Interacting Multiple Model (handles maneuvering better than CV)
-fprintf("\n============ GNN + IMM ============\n");
-tracker = trackerGNN( ...
-    'FilterInitializationFcn', @initIMMFilter, ...
-    'MaxNumTracks', numTracks, ...
-    'MaxNumSensors', 1, ...
-    'AssignmentThreshold', gate, ...
-    'TrackLogic', 'Score', ...
-    'DetectionProbability', pd, ...
-    'FalseAlarmRate', farGNN, ...
-    'Volume', volume, ...
-    'Beta', beta);
+if config.trackers_to_run.gnn_imm
+    % IMM: Interacting Multiple Model (handles maneuvering better than CV)
+    fprintf("\n============ GNN + IMM ============\n");
+    tracker = trackerGNN( ...
+        'FilterInitializationFcn', @initIMMFilter, ...
+        'MaxNumTracks', numTracks, ...
+        'MaxNumSensors', 1, ...
+        'AssignmentThreshold', params.gate, ...
+        'TrackLogic', 'Score', ...
+        'DetectionProbability', pd, ...
+        'FalseAlarmRate', params.far_gnn, ...
+        'Volume', volume, ...
+        'Beta', beta);
 
-[trackSummary, truthSummary, trackMetrics, truthMetrics, timeGNNIMM] = helperRunTracker(dataLog, tracker, false);
-disp(trackSummary); disp(truthSummary);
-disp(trackMetrics); disp(truthMetrics);
+    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
+    
+    results.gnn_imm.trackSummary = trackSummary;
+    results.gnn_imm.truthSummary = truthSummary;
+    results.gnn_imm.trackMetrics = trackMetrics;
+    results.gnn_imm.truthMetrics = truthMetrics;
+    results.gnn_imm.time = time;
+    
+    if config.output.print_diagnostics
+        disp(trackSummary); disp(truthSummary);
+        disp(trackMetrics); disp(truthMetrics);
+    end
+end
 
 %% ============ TOMHT + CV ============
-% TOMHT: Track-Oriented MHT (multiple hypotheses; good under ambiguity)
+if config.trackers_to_run.tomht_cv
 fprintf("\n============ TOMHT + CV ============\n");
+    
+    tomhtThresh = params.tomht_threshold_multiplier * params.gate;
+    
 tracker = trackerTOMHT( ...
     'FilterInitializationFcn', @initCVFilter, ...
     'MaxNumTracks', numTracks, ...
     'MaxNumSensors', 1, ...
     'AssignmentThreshold', tomhtThresh, ...
     'DetectionProbability', pd, ...
-    'FalseAlarmRate', farMHT, ...
+        'FalseAlarmRate', params.far_mht, ...
     'Volume', volume, ...
     'Beta', beta, ...
-    'ConfirmationThreshold', confirmThresh, ...
-    'DeletionThreshold', deleteThresh, ...
+        'ConfirmationThreshold', params.confirm_threshold, ...
+        'DeletionThreshold', params.delete_threshold, ...
     'MaxNumHistoryScans', 10, ...
-    'MaxNumTrackBranches', maxBranches, ...
+        'MaxNumTrackBranches', params.max_branches, ...
     'NScanPruning', 'Hypothesis', ...
     'OutputRepresentation', 'Tracks');
 
-[trackSummary, truthSummary, trackMetrics, truthMetrics, timeTOMHTCV] = helperRunTracker(dataLog, tracker, false);
-disp(trackSummary); disp(truthSummary);
-disp(trackMetrics); disp(truthMetrics);
+    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
+    
+    results.tomht_cv.trackSummary = trackSummary;
+    results.tomht_cv.truthSummary = truthSummary;
+    results.tomht_cv.trackMetrics = trackMetrics;
+    results.tomht_cv.truthMetrics = truthMetrics;
+    results.tomht_cv.time = time;
+    
+    if config.output.print_diagnostics
+        disp(trackSummary); disp(truthSummary);
+        disp(trackMetrics); disp(truthMetrics);
+    end
+end
 
 %% ============ TOMHT + IMM ============
-fprintf("\n============ TOMHT + IMM ============\n");
-tracker = trackerTOMHT( ...
-    'FilterInitializationFcn', @initIMMFilter, ...
-    'MaxNumTracks', numTracks, ...
-    'MaxNumSensors', 1, ...
-    'AssignmentThreshold', tomhtThresh, ...
-    'DetectionProbability', pd, ...
-    'FalseAlarmRate', farMHT, ...
-    'Volume', volume, ...
-    'Beta', beta, ...
-    'ConfirmationThreshold', confirmThresh, ...
-    'DeletionThreshold', deleteThresh, ...
-    'MaxNumHistoryScans', 10, ...
-    'MaxNumTrackBranches', maxBranches, ...
-    'NScanPruning', 'Hypothesis', ...
-    'OutputRepresentation', 'Tracks');
+if config.trackers_to_run.tomht_imm
+    fprintf("\n============ TOMHT + IMM ============\n");
+    
+    tomhtThresh = params.tomht_threshold_multiplier * params.gate;
+    
+    tracker = trackerTOMHT( ...
+        'FilterInitializationFcn', @initIMMFilter, ...
+        'MaxNumTracks', numTracks, ...
+        'MaxNumSensors', 1, ...
+        'AssignmentThreshold', tomhtThresh, ...
+        'DetectionProbability', pd, ...
+        'FalseAlarmRate', params.far_mht, ...
+        'Volume', volume, ...
+        'Beta', beta, ...
+        'ConfirmationThreshold', params.confirm_threshold, ...
+        'DeletionThreshold', params.delete_threshold, ...
+        'MaxNumHistoryScans', 10, ...
+        'MaxNumTrackBranches', params.max_branches, ...
+        'NScanPruning', 'Hypothesis', ...
+        'OutputRepresentation', 'Tracks');
 
-[trackSummary, truthSummary, trackMetrics, truthMetrics, timeTOMHTIMM] = helperRunTracker(dataLog, tracker, false);
-disp(trackSummary); disp(truthSummary);
-disp(trackMetrics); disp(truthMetrics);
+    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
+    
+    results.tomht_imm.trackSummary = trackSummary;
+    results.tomht_imm.truthSummary = truthSummary;
+    results.tomht_imm.trackMetrics = trackMetrics;
+    results.tomht_imm.truthMetrics = truthMetrics;
+    results.tomht_imm.time = time;
+    
+    if config.output.print_diagnostics
+    disp(trackSummary); disp(truthSummary);
+    disp(trackMetrics); disp(truthMetrics);
+    end
+end
 
 %% ============ JPDA + CV ============
-% JPDA: Joint Probabilistic Data Association (soft association)
-% Integrated logic means it internally manages existence based on association probs.
-fprintf("\n============JPDA + CV==================\n");
-tracker = trackerJPDA( ...
-    'FilterInitializationFcn', @initCVFilter, ...
-    'MaxNumTracks', numTracksJPDA, ...
-    'MaxNumSensors', 1, ...
-    'AssignmentThreshold', gateJPDA, ...
-    'TrackLogic', 'Integrated', ...
-    'DetectionProbability', pd, ...
-    'ClutterDensity', farJPDA/volume, ...
-    'NewTargetDensity', betaJPDA, ...
-    'TimeTolerance', timeTolJPDA);
+if config.trackers_to_run.jpda_cv
+    fprintf("\n============JPDA + CV==================\n");
+    tracker = trackerJPDA( ...
+        'FilterInitializationFcn', @initCVFilter, ...
+        'MaxNumTracks', params.num_tracks_jpda, ...
+        'MaxNumSensors', 1, ...
+        'AssignmentThreshold', params.gate_jpda, ...
+        'TrackLogic', 'Integrated', ...
+        'DetectionProbability', pd, ...
+        'ClutterDensity', params.far_jpda/volume, ...
+        'NewTargetDensity', params.beta_jpda, ...
+        'TimeTolerance', params.time_tolerance_jpda);
 
-[trackSummary, truthSummary, trackMetrics, truthMetrics, timeJPDACV] = helperRunTracker(dataLog, tracker, false);
-disp(trackSummary); disp(truthSummary);
-disp(trackMetrics); disp(truthMetrics);
+    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
+    
+    results.jpda_cv.trackSummary = trackSummary;
+    results.jpda_cv.truthSummary = truthSummary;
+    results.jpda_cv.trackMetrics = trackMetrics;
+    results.jpda_cv.truthMetrics = truthMetrics;
+    results.jpda_cv.time = time;
+    
+    if config.output.print_diagnostics
+    disp(trackSummary); disp(truthSummary);
+    disp(trackMetrics); disp(truthMetrics);
+    end
+end
 
 %% ============ JPDA + IMM ============
+if config.trackers_to_run.jpda_imm
 fprintf("\n============JPDA + IMM==================\n");
 tracker = trackerJPDA( ...
     'FilterInitializationFcn', @initIMMFilter, ...
-    'MaxNumTracks', numTracksJPDA, ...
+        'MaxNumTracks', params.num_tracks_jpda, ...
     'MaxNumSensors', 1, ...
-    'AssignmentThreshold', gateJPDA, ...
+        'AssignmentThreshold', params.gate_jpda, ...
     'TrackLogic', 'Integrated', ...
     'DetectionProbability', pd, ...
-    'ClutterDensity', farJPDA/volume, ...
-    'NewTargetDensity', betaJPDA, ...
-    'TimeTolerance', timeTolJPDA);
+        'ClutterDensity', params.far_jpda/volume, ...
+        'NewTargetDensity', params.beta_jpda, ...
+        'TimeTolerance', params.time_tolerance_jpda);
 
-[trackSummary, truthSummary, trackMetrics, truthMetrics, timeJPDAIMM] = helperRunTracker(dataLog, tracker, false);
-disp(trackSummary); disp(truthSummary);
-disp(trackMetrics); disp(truthMetrics);
+    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
+    
+    results.jpda_imm.trackSummary = trackSummary;
+    results.jpda_imm.truthSummary = truthSummary;
+    results.jpda_imm.trackMetrics = trackMetrics;
+    results.jpda_imm.truthMetrics = truthMetrics;
+    results.jpda_imm.time = time;
+    
+    if config.output.print_diagnostics
+        disp(trackSummary); disp(truthSummary);
+        disp(trackMetrics); disp(truthMetrics);
+    end
+end
+
+%% Save results if configured
+if config.output.save_results
+    resultsDir = fullfile(pwd, config.output.results_directory);
+    if ~exist(resultsDir, "dir")
+        mkdir(resultsDir);
+    end
+    
+    timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+    scenarioName = strrep(configName, "/", "_");
+    resultsFile = fullfile(resultsDir, sprintf("results_%s_%s.mat", scenarioName, timestamp));
+    
+    save(resultsFile, "results", "config", "-v7.3");
+    fprintf("[INFO] Saved results to %s\n", resultsFile);
+end
 
 fprintf("\n==============================\n");
 fprintf(" RUN END | Scenario = %s\n", ternary(enableDegradation,"RAINY","IDEAL"));
@@ -321,4 +342,3 @@ root = pwd;
 addpath(genpath(fullfile(root, "src", "helpers")));
 addpath(genpath(fullfile(root, "src", "visualization")));
 end
-

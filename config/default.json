@@ -17,8 +17,8 @@
   },
 
   "data_logging": {
-    "use_saved_dataLog": false,
-    "dataLog_file": "cache/myRun1.mat",
+    "use_saved_datalog": false,
+    "datalog_file": "cache/myRun1.mat",
     "save_after_generation": true
   },
 
