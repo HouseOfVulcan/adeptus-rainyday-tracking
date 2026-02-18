@@ -1,0 +1,22 @@
+# MATLAB autosave/backup files
+*.asv
+*.m~
+
+# Generated data/cache/results
+cache/*
+results/*
+plots/*
+
+# Large generated artifacts
+*.mat
+html/*.pdf
+images/*.png
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+notes
+
+# vscode config files
+.vscode
