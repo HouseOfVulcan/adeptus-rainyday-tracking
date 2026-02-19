@@ -338,7 +338,7 @@ end
 end
 
 function addProjectPaths()
-root = pwd;
-addpath(genpath(fullfile(root, "src", "helpers")));
-addpath(genpath(fullfile(root, "src", "visualization")));
+    root = pwd;
+    addpath(genpath(fullfile(root, "src", "helpers")));
+    addpath(genpath(fullfile(root, "src", "visualization")));
 end
