@@ -1,9 +1,18 @@
-function plotScenarioAndDetections(dataLog)
+function plotScenarioAndDetections(dataLog, showVisuals)
 %plotScenarioAndDetections Plot truth trajectories and detections from dataLog
 %
 % This version is robust when dataLog.Detections is a cell array where each
 % element is a cell array of objectDetection objects (as produced by the
 % modified helperRunDetections).
+
+if nargin < 2
+        showVisuals = true;
+end
+
+% If visuals are disabled, exit immediately without opening a figure
+if ~showVisuals
+    return;
+end
 
 figure; hold on; grid on;
 title('Scenario Truth and Detections');

@@ -1,4 +1,4 @@
-function [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog,tracker,showTruth)
+function [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
 %helperRunTracker  Run a tracker on a logged detection sequence and compute metrics.
 %
 % PURPOSE
@@ -41,6 +41,13 @@ function [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helper
 %   - This avoids spawning a new figure per run while keeping interactivity.
 % -------------------------------------------------------------------------
 
+if nargin < 4
+    showVisuals = true;
+end
+if nargin < 5
+    animateVisuals = true;
+end
+
 % -------- Adaptive clutter gating settings --------
 % enableAdaptiveROIGate:
 %   If true, apply a simple measurement-space ROI gate when scans are "busy".
@@ -69,39 +76,46 @@ maxDetsWhenBusy    = 20;
 validateattributes(tracker,{'trackerGNN','trackerTOMHT','trackerJPDA','numeric'},{},mfilename,'tracker');
 
 % Extract readable labels for plot tab title (purely cosmetic)
+% Extract readable labels for plot tab title (purely cosmetic)
 trackerType = class(tracker);
 trackerType = trackerType(8:end);  % strip "tracker" prefix (e.g., "GNN")
-filterType = func2str(tracker.FilterInitializationFcn);
-filterType = filterType(5:end-6);  % strip "@init" and "Filter" bits (hacky but readable)
-plotTitle = ['Tracker: ',trackerType,'. Model: ',filterType];
 
-%% Create Display (TABBED)
-% tabbedAxes creates or reuses a single figure with tabs.
-% Each run gets its own tab, so you can compare runs visually.
-tpaxes = tabbedAxes(plotTitle);
-title(tpaxes, plotTitle);
+% Robustly extract the filter model even if it's an anonymous function
+filterFcnStr = func2str(tracker.FilterInitializationFcn);
+if contains(filterFcnStr, 'IMM', 'IgnoreCase', true)
+    filterType = 'IMM';
+elseif contains(filterFcnStr, 'CV', 'IgnoreCase', true)
+    filterType = 'CV';
+else
+    filterType = 'Custom';
+end
 
-% theaterPlot is a convenient 2D/3D plotter for tracking scenarios.
-% AxesUnits set to km for readability, but our measurements are in meters.
-tp = theaterPlot('Parent', tpaxes, ...
-    'AxesUnits', ["km" "km" "km"], ...
-    'XLimits', [-2000 2000], ...        % meters
-    'YLimits', [-20500 -17000]);        % meters
+plotTitle = ['Tracker: ',trackerType,' | Model: ',filterType];
 
-% Track plotter: draws track history and velocity arrows
-trackP = trackPlotter(tp, ...
-    'DisplayName','Tracks', ...
-    'HistoryDepth',100, ...
-    'ColorizeHistory','on', ...
-    'ConnectHistory','on');
 
-% Detection plotter: draws detection points and (optionally) uncertainty ellipses
-detectionP = detectionPlotter(tp, ...
-    'DisplayName','Detections', ...
-    'MarkerSize',6, ...
-    'MarkerFaceColor',[0.85 0.325 0.098], ...
-    'MarkerEdgeColor','k', ...
-    'History',1000);
+if showVisuals
+    %% Create Display (TABBED)
+    tpaxes = tabbedAxes(plotTitle);
+    title(tpaxes, plotTitle);
+    
+    % Force the default camera view to 3D
+    view(tpaxes, 3); 
+    
+    tp = theaterPlot('Parent', tpaxes, ...
+        'AxesUnits', ["km" "km" "km"], ...
+        'XLimits', [-2000 2000], ...        
+        'YLimits', [-20500 -17000]);        
+    
+    % Dictionaries to hold unique plotters and custom history lines
+    trackPlotters = containers.Map('KeyType', 'double', 'ValueType', 'any');
+    trackHistLines = containers.Map('KeyType', 'double', 'ValueType', 'any'); 
+    trackColors = lines(20); % Color palette for tracks
+    
+    % Use animatedline to accumulate ALL detections without a "(history)" legend!
+    detLine = animatedline(tpaxes, 'DisplayName', 'Detections', ...
+        'LineStyle', 'none', 'Marker', '.', 'MarkerSize', 8, ...
+        'Color', [0 0.8 0], 'MaximumNumPoints', 1e6); % 1e6 ensures no points ever fade
+end
 
 %% Track Metrics (assignment + error)
 % scanTime is inferred from dataLog.Time spacing.
@@ -129,12 +143,24 @@ tem = trackErrorMetrics;
 %% Run the tracker
 % time accumulates only the time spent inside tracker(...) calls.
 % This is a proxy for algorithm runtime (not including plotting/metrics overhead).
+
+%% Initialize static buffers if not animating
 time = 0;
 numSteps = numel(dataLog.Time);
 i = 0;
 
+%% Initialize static buffers if not animating
+if showVisuals && ~animateVisuals
+    allStaticDets = cell(1, numSteps); % Buffer for detections
+    staticTrackHist = struct();
+end
+
 % Loop until scenario ends OR the tab's axes gets deleted by user
-while i < numSteps && isvalid(tpaxes)
+while i < numSteps
+    if showVisuals && ~isvalid(tpaxes)
+        break;
+    end
+
     i = i + 1;
 
     % Scan time and detections for this step
@@ -221,41 +247,126 @@ while i < numSteps && isvalid(tpaxes)
     % Step error metrics using the current assignment.
     tem(tracks, trackIDs, truths, truthIDs);
 
-    %% Plotting: detections + tracks
-    % Convert scanCells into an objectDetection array for plotting
-    if isempty(scanCells)
-        allDets = objectDetection.empty(0,1);
-    else
-        allDets = vertcat(scanCells{:});
+    %% Plotting: Detections + Tracks
+    if showVisuals
+        % --- Extract Detections ---
+        if isempty(scanCells)
+            meas = zeros(3,0);
+        else
+            allDets = vertcat(scanCells{:});
+            if isempty(allDets)
+                meas = zeros(3,0);
+            else
+                meas = cat(2, allDets.Measurement);
+            end
+        end
+
+        % --- Extract Tracks ---
+        [pos,cov] = getTrackPositions(tracks, ...
+            [1 0 0 0 0 0; 0 0 1 0 0 0; 0 0 0 0 1 0]);
+
+        if animateVisuals
+            % 1. Plot the green detections cumulatively
+            if ~isempty(meas)
+                addpoints(detLine, meas(1,:), meas(2,:), meas(3,:));
+            end
+            
+            % 2. Iterate through current tracks to plot them individually
+            for tIdx = 1:numel(tracks)
+                tID = double(tracks(tIdx).TrackID);
+                
+                % Create a new, uniquely colored plotter if this is a new track
+                if ~isKey(trackPlotters, tID)
+                    colorIdx = mod(tID - 1, size(trackColors, 1)) + 1;
+                    trkColor = trackColors(colorIdx, :);
+                    
+                    % Create track plotter with history OFF to avoid double legend
+                    trackPlotters(tID) = trackPlotter(tp, ...
+                        'DisplayName', sprintf('Track %d', tID), ...
+                        'ConnectHistory', 'off', ...   
+                        'Marker', 's', ...             
+                        'MarkerSize', 8, ...
+                        'MarkerFaceColor', trkColor, ...
+                        'MarkerEdgeColor', 'k');
+                        
+                    % Create our own custom history line!
+                    hLine = animatedline(tpaxes, ...
+                        'Color', trkColor, ...
+                        'LineWidth', 1.5, ...
+                        'LineStyle', '-', ...
+                        'MaximumNumPoints', 100); 
+                        
+                    % Completely hide this history line from the legend!
+                    hLine.Annotation.LegendInformation.IconDisplayStyle = 'off';
+                    
+                    trackHistLines(tID) = hLine;
+                end
+                
+                % Grab the plotter for this track and update it
+                thisP = trackPlotters(tID);
+                
+                % Pass zeros(1,3) instead of vel to hide the black velocity lines
+                thisP.plotTrack(pos(tIdx, :), zeros(1, 3), cov(:, :, tIdx), {num2str(tID)});
+                
+                % Grab our custom history line and add the new point
+                addpoints(trackHistLines(tID), pos(tIdx, 1), pos(tIdx, 2), pos(tIdx, 3));
+            end
+            
+            drawnow limitrate;
+        else
+            % Buffer data in memory for instant plotting later
+            if ~isempty(meas)
+                allStaticDets{i} = meas; 
+            end
+            for tIdx = 1:numel(tracks)
+                tID = tracks(tIdx).TrackID;
+                fName = sprintf('T%d', tID);
+                if ~isfield(staticTrackHist, fName)
+                    staticTrackHist.(fName) = [];
+                end
+                
+                % Extract the row for this specific track and append it
+                thisPos = pos(tIdx, :)'; 
+                staticTrackHist.(fName) = [staticTrackHist.(fName), thisPos];
+            end
+        end
     end
+end % <--- End of while loop
 
-    % Extract measurements and measurement noise for detectionPlotter
-    if isempty(allDets)
-        meas = zeros(3,0);
-        measCov = zeros(3,3,0);
-    else
-        meas = cat(2, allDets.Measurement);
-        measCov = cat(3, allDets.MeasurementNoise);
+% If visuals are ON but animation is OFF, draw everything instantly at the end
+if showVisuals && ~animateVisuals
+    hold(tpaxes, 'on');
+    view(tpaxes, 3); % Ensure 3D view is kept
+    
+    % Plot all buffered detections at once
+    validDets = allStaticDets(~cellfun('isempty', allStaticDets)); 
+    if ~isempty(validDets)
+        finalDets = cat(2, validDets{:}); 
+        plot3(tpaxes, finalDets(1,:), finalDets(2,:), finalDets(3,:), ...
+            '.', 'Color', [0 0.8 0], 'MarkerSize', 8, 'DisplayName', 'Detections');
     end
-    detectionP.plotDetection(meas', measCov);
-
-    % Extract track positions/velocities in XYZ using a selection matrix
-    % (Assumes state ordering compatible with getTrackPositions/Velocities.)
-    [pos,cov] = getTrackPositions(tracks, ...
-        [1 0 0 0 0 0; ...
-         0 0 1 0 0 0; ...
-         0 0 0 0 1 0]);
-
-    [vel,~] = getTrackVelocities(tracks, ...
-        [0 1 0 0 0 0; ...
-         0 0 0 1 0 0; ...
-         0 0 0 0 0 1]);
-
-    % Label tracks by TrackID for visual debugging
-    labels = arrayfun(@(x)num2str(x.TrackID), tracks, 'UniformOutput', false);
-    trackP.plotTrack(pos, vel, cov, labels);
-
-    drawnow
+    
+    % Plot all buffered tracks at once
+    fNames = fieldnames(staticTrackHist);
+    cmap = lines(numel(fNames)); % Give each track a distinct color
+    
+    for i = 1:numel(fNames)
+        tPos = staticTrackHist.(fNames{i});
+        
+        % Draw the line with the matching square markers
+        plot3(tpaxes, tPos(1,:), tPos(2,:), tPos(3,:), ...
+            '-s', 'LineWidth', 2, 'Color', cmap(i,:), ...
+            'MarkerSize', 6, 'MarkerFaceColor', cmap(i,:), ...
+            'MarkerEdgeColor', 'k', ...
+            'DisplayName', ['Track ', fNames{i}(2:end)]);
+        
+        % Add the Track ID label at the end of the line
+        if ~isempty(tPos)
+            text(tpaxes, tPos(1,end), tPos(2,end), tPos(3,end), ...
+                fNames{i}(2:end), 'FontSize', 10, 'FontWeight', 'bold', 'Color', cmap(i,:));
+        end
+    end
+    drawnow;
 end
 
 %% Optional: plot truth trajectories (after run)
@@ -362,16 +473,24 @@ function detsOut = gateDetectionsROI(detsIn, roi)
 
     keep = false(numel(detsIn),1);
     for ii = 1:numel(detsIn)
-        z = detsIn{ii}.Measurement(:);
-
-        % Some dets may be 2D; pad to 3D so bounds checks don't crash.
-        if numel(z) == 2
-            z = [z; 0];
+        meas = detsIn{ii}.Measurement(:);
+        
+        % Extract X and Y (always present)
+        xPos = meas(1);
+        yPos = meas(2);
+        
+        % Extract Z, or default to 0 if it is a 2D measurement
+        if numel(meas) >= 3
+            zPos = meas(3);
+        else
+            zPos = 0;
         end
 
-        keep(ii) = (z(1) >= roi.xMin && z(1) <= roi.xMax) && ...
-                   (z(2) >= roi.yMin && z(2) <= roi.yMax) && ...
-                   (z(3) >= roi.zMin && z(3) <= roi.zMax);
+        % Evaluate bounds without array resizing
+        keep(ii) = (xPos >= roi.xMin && xPos <= roi.xMax) && ...
+                   (yPos >= roi.yMin && yPos <= roi.yMax) && ...
+                   (zPos >= roi.zMin && zPos <= roi.zMax);
     end
+    
     detsOut = detsIn(keep);
 end

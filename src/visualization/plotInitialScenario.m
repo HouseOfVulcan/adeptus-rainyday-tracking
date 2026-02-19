@@ -1,7 +1,11 @@
-function plotInitialScenario(dataLog)
+function plotInitialScenario(dataLog, animateFlag)
 % PLOTINITIALSCENARIO Visualize Truth and Detections (3D Animated)
 % Colors: Truth tracks are distinct (Blue, Red, etc.). Detections are Green.
-
+    
+    if nargin < 2
+        animateFlag = true; % Default behavior
+    end
+    
     % 1. SETUP FIGURE
     figure('Name', 'Scenario Truth and Detections (3D)', 'Color', 'k', ...
            'NumberTitle', 'off');
@@ -59,7 +63,11 @@ function plotInitialScenario(dataLog)
         'DisplayName', 'Detections');
 
     %% 3. RUN ANIMATION LOOP
-    fprintf('Animating 3D scenario... (Press Ctrl+C to stop)\n');
+    if animateFlag
+        fprintf('Animating 3D scenario... (Press Ctrl+C to stop)\n');
+    else
+        fprintf('Generating static 3D scenario plot...\n');
+    end
     
     % Setup Legend
     validHandles = [hTrails(:); hDetect];
@@ -73,11 +81,10 @@ function plotInitialScenario(dataLog)
         for ti = 1:nTgts
             if isfield(T(ti,k),'Position') && ~isempty(T(ti,k).Position)
                 p = T(ti,k).Position(:);
-                % Check if we have 3 dimensions (X, Y, Z)
                 if numel(p) >= 3
                     xVal = p(1) * s; 
                     yVal = p(2) * s;
-                    zVal = p(3) * s; % Extract Altitude
+                    zVal = p(3) * s; 
                     
                     addpoints(hTrails(ti), xVal, yVal, zVal);
                     set(hMarkers(ti), 'XData', xVal, 'YData', yVal, 'ZData', zVal);
@@ -94,11 +101,9 @@ function plotInitialScenario(dataLog)
                         det = scanDets{j};
                         if isprop(det, 'Measurement') || isfield(det, 'Measurement')
                             meas = det.Measurement(:);
-                            % Check for 3D measurement
                             if numel(meas) >= 3
                                 addpoints(hDetect, meas(1)*s, meas(2)*s, meas(3)*s);
                             elseif numel(meas) == 2
-                                % Fallback if sensor is 2D (assume Z=0)
                                 addpoints(hDetect, meas(1)*s, meas(2)*s, 0);
                             end
                         end
@@ -115,15 +120,24 @@ function plotInitialScenario(dataLog)
                 end
             end
             
-            if mod(k, 2) == 0
-             drawnow limitrate;
+            % Only limit frame rate if we are animating
+            if animateFlag && mod(k, 2) == 0
+                drawnow limitrate;
             end
         end
         
         % --- RENDER FRAME ---
-        drawnow;
-        % Removed pause for speed, or add pause(0.01) if too fast
+        if animateFlag
+            drawnow;
+        end
     end
     
-    fprintf('3D Animation complete.\n');
+    % Force one final render at the very end to show the static plot
+    drawnow;
+    
+    if animateFlag
+        fprintf('3D Animation complete.\n');
+    else
+        fprintf('3D Static plot complete.\n');
+    end
 end

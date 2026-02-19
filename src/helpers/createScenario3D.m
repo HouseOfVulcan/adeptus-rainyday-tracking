@@ -163,7 +163,7 @@ function addAircraft(scenario, T, idx)
 
         case 2
             % Pattern 2: opposite direction with gentle descent
-            tNorm = [0 0.33 0.67 1.0 1.0];  % Normalized times
+            tNorm = [0 0.25 0.5 0.75 1.0];  % Normalized times
             t = tNorm * T;
             
             wp = [ ...

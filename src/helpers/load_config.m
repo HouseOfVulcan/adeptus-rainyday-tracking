@@ -146,7 +146,7 @@ function s = set_nested_field(s, path, value)
     
     % Reconstruct the struct (MATLAB quirk)
     % This is simplified - for production we'll need recursive assignment
-    if length(parts) == 1
+    if isscalar(parts)
         s.(parts{1}) = value;
     elseif length(parts) == 2
         s.(parts{1}).(parts{2}) = value;

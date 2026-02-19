@@ -1,4 +1,3 @@
-
 function trackingWithWeather(configName)
 % trackingWithWeather: Top-level driver for tracking + degradation experiments.
 %
@@ -46,7 +45,6 @@ sceneDuration = config.scenario.duration_s;
 enableDegradation = config.degradation.enabled;
 
 %% Extract Global Tracker Parameters
-numTracks = config.tracker_global.max_num_tracks;
 volume    = config.tracker_global.volume;
 beta      = config.tracker_global.beta;
 
@@ -94,8 +92,22 @@ else
     end
 end
 
-if config.output.plot_initial_scenario
-    plotInitialScenario(dataLog);
+% Extract visualization flags with safe defaults
+if isfield(config.output, 'show_visuals')
+    showVis = config.output.show_visuals;
+else
+    showVis = true; 
+end
+
+if isfield(config.output, 'animate_visuals')
+    animVis = config.output.animate_visuals;
+else
+    animVis = true; 
+end
+
+% Plot 3D Scenario if visuals are enabled
+if showVis
+    plotInitialScenario(dataLog, animVis);
 end
 
 %% Quick stats on detection count per scan
@@ -111,197 +123,45 @@ end
 fprintf("[Config] Scenario=%s | gate=%.1f | farGNN=%.2e | farMHT=%.2e | farJPDA=%.2e | pd=%.2f | volume=%.2e | beta=%.2e\n", ...
     ternary(enableDegradation,"RAINY","IDEAL"), params.gate, params.far_gnn, params.far_mht, params.far_jpda, pd, volume, beta);
 
-%% Run all enabled trackers
-% This structure makes it easy to enable/disable trackers via config
-
+%% Run all enabled trackers dynamically
 results = struct();
 
-%% ============ GNN + CV ============
-if config.trackers_to_run.gnn_cv
-    fprintf("\n============ GNN + CV ============\n");
-    tracker = trackerGNN( ...
-        'FilterInitializationFcn', @initCVFilter, ...
-        'MaxNumTracks', numTracks, ...
-        'MaxNumSensors', 1, ...
-        'AssignmentThreshold', params.gate, ...
-        'TrackLogic', 'Score', ...
-        'DetectionProbability', pd, ...
-        'FalseAlarmRate', params.far_gnn, ...
-        'Volume', volume, ...
-        'Beta', beta);
+% Define the combinations we want to check based on the config
+trackerCombos = {
+    {'GNN', 'CV',   config.trackers_to_run.gnn_cv};
+    {'GNN', 'IMM',  config.trackers_to_run.gnn_imm};
+    {'TOMHT','CV',  config.trackers_to_run.tomht_cv};
+    {'TOMHT','IMM', config.trackers_to_run.tomht_imm};
+    {'JPDA', 'CV',  config.trackers_to_run.jpda_cv};
+    {'JPDA', 'IMM', config.trackers_to_run.jpda_imm}
+};
 
-    % helperRunTracker does:
-    %   - step through dataLog detections
-    %   - call tracker(detections, time)
-    %   - compute metrics vs truth
-    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
-
-    results.gnn_cv.trackSummary = trackSummary;
-    results.gnn_cv.truthSummary = truthSummary;
-    results.gnn_cv.trackMetrics = trackMetrics;
-    results.gnn_cv.truthMetrics = truthMetrics;
-    results.gnn_cv.time = time;
-
-    if config.output.print_diagnostics
-        disp(trackSummary); disp(truthSummary);
-        disp(trackMetrics); disp(truthMetrics);
-    end
-end
-
-%% ============ GNN + IMM ============
-if config.trackers_to_run.gnn_imm
-    % IMM: Interacting Multiple Model (handles maneuvering better than CV)
-    fprintf("\n============ GNN + IMM ============\n");
-    tracker = trackerGNN( ...
-        'FilterInitializationFcn', @initIMMFilter, ...
-        'MaxNumTracks', numTracks, ...
-        'MaxNumSensors', 1, ...
-        'AssignmentThreshold', params.gate, ...
-        'TrackLogic', 'Score', ...
-        'DetectionProbability', pd, ...
-        'FalseAlarmRate', params.far_gnn, ...
-        'Volume', volume, ...
-        'Beta', beta);
-
-    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
+for c = 1:length(trackerCombos)
+    tType = trackerCombos{c}{1};
+    fModel = trackerCombos{c}{2};
+    isEnabled = trackerCombos{c}{3};
     
-    results.gnn_imm.trackSummary = trackSummary;
-    results.gnn_imm.truthSummary = truthSummary;
-    results.gnn_imm.trackMetrics = trackMetrics;
-    results.gnn_imm.truthMetrics = truthMetrics;
-    results.gnn_imm.time = time;
-    
-    if config.output.print_diagnostics
-        disp(trackSummary); disp(truthSummary);
-        disp(trackMetrics); disp(truthMetrics);
-    end
-end
-
-%% ============ TOMHT + CV ============
-if config.trackers_to_run.tomht_cv
-fprintf("\n============ TOMHT + CV ============\n");
-    
-    tomhtThresh = params.tomht_threshold_multiplier * params.gate;
-    
-tracker = trackerTOMHT( ...
-    'FilterInitializationFcn', @initCVFilter, ...
-    'MaxNumTracks', numTracks, ...
-    'MaxNumSensors', 1, ...
-    'AssignmentThreshold', tomhtThresh, ...
-    'DetectionProbability', pd, ...
-        'FalseAlarmRate', params.far_mht, ...
-    'Volume', volume, ...
-    'Beta', beta, ...
-        'ConfirmationThreshold', params.confirm_threshold, ...
-        'DeletionThreshold', params.delete_threshold, ...
-    'MaxNumHistoryScans', 10, ...
-        'MaxNumTrackBranches', params.max_branches, ...
-    'NScanPruning', 'Hypothesis', ...
-    'OutputRepresentation', 'Tracks');
-
-    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
-    
-    results.tomht_cv.trackSummary = trackSummary;
-    results.tomht_cv.truthSummary = truthSummary;
-    results.tomht_cv.trackMetrics = trackMetrics;
-    results.tomht_cv.truthMetrics = truthMetrics;
-    results.tomht_cv.time = time;
-    
-    if config.output.print_diagnostics
-        disp(trackSummary); disp(truthSummary);
-        disp(trackMetrics); disp(truthMetrics);
-    end
-end
-
-%% ============ TOMHT + IMM ============
-if config.trackers_to_run.tomht_imm
-    fprintf("\n============ TOMHT + IMM ============\n");
-    
-    tomhtThresh = params.tomht_threshold_multiplier * params.gate;
-    
-    tracker = trackerTOMHT( ...
-        'FilterInitializationFcn', @initIMMFilter, ...
-        'MaxNumTracks', numTracks, ...
-        'MaxNumSensors', 1, ...
-        'AssignmentThreshold', tomhtThresh, ...
-        'DetectionProbability', pd, ...
-        'FalseAlarmRate', params.far_mht, ...
-        'Volume', volume, ...
-        'Beta', beta, ...
-        'ConfirmationThreshold', params.confirm_threshold, ...
-        'DeletionThreshold', params.delete_threshold, ...
-        'MaxNumHistoryScans', 10, ...
-        'MaxNumTrackBranches', params.max_branches, ...
-        'NScanPruning', 'Hypothesis', ...
-        'OutputRepresentation', 'Tracks');
-
-    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
-    
-    results.tomht_imm.trackSummary = trackSummary;
-    results.tomht_imm.truthSummary = truthSummary;
-    results.tomht_imm.trackMetrics = trackMetrics;
-    results.tomht_imm.truthMetrics = truthMetrics;
-    results.tomht_imm.time = time;
-    
-    if config.output.print_diagnostics
-    disp(trackSummary); disp(truthSummary);
-    disp(trackMetrics); disp(truthMetrics);
-    end
-end
-
-%% ============ JPDA + CV ============
-if config.trackers_to_run.jpda_cv
-    fprintf("\n============JPDA + CV==================\n");
-    tracker = trackerJPDA( ...
-        'FilterInitializationFcn', @initCVFilter, ...
-        'MaxNumTracks', params.num_tracks_jpda, ...
-        'MaxNumSensors', 1, ...
-        'AssignmentThreshold', params.gate_jpda, ...
-        'TrackLogic', 'Integrated', ...
-        'DetectionProbability', pd, ...
-        'ClutterDensity', params.far_jpda/volume, ...
-        'NewTargetDensity', params.beta_jpda, ...
-        'TimeTolerance', params.time_tolerance_jpda);
-
-    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
-    
-    results.jpda_cv.trackSummary = trackSummary;
-    results.jpda_cv.truthSummary = truthSummary;
-    results.jpda_cv.trackMetrics = trackMetrics;
-    results.jpda_cv.truthMetrics = truthMetrics;
-    results.jpda_cv.time = time;
-    
-    if config.output.print_diagnostics
-    disp(trackSummary); disp(truthSummary);
-    disp(trackMetrics); disp(truthMetrics);
-    end
-end
-
-%% ============ JPDA + IMM ============
-if config.trackers_to_run.jpda_imm
-fprintf("\n============JPDA + IMM==================\n");
-tracker = trackerJPDA( ...
-    'FilterInitializationFcn', @initIMMFilter, ...
-        'MaxNumTracks', params.num_tracks_jpda, ...
-    'MaxNumSensors', 1, ...
-        'AssignmentThreshold', params.gate_jpda, ...
-    'TrackLogic', 'Integrated', ...
-    'DetectionProbability', pd, ...
-        'ClutterDensity', params.far_jpda/volume, ...
-        'NewTargetDensity', params.beta_jpda, ...
-        'TimeTolerance', params.time_tolerance_jpda);
-
-    [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false);
-    
-    results.jpda_imm.trackSummary = trackSummary;
-    results.jpda_imm.truthSummary = truthSummary;
-    results.jpda_imm.trackMetrics = trackMetrics;
-    results.jpda_imm.truthMetrics = truthMetrics;
-    results.jpda_imm.time = time;
-    
-    if config.output.print_diagnostics
-        disp(trackSummary); disp(truthSummary);
-        disp(trackMetrics); disp(truthMetrics);
+    if isEnabled
+        comboName = lower(sprintf('%s_%s', tType, fModel));
+        fprintf('\n============ %s + %s ============\n', tType, fModel);
+        
+        % 1. Use the new factory to build the tracker
+        tracker = buildTracker(tType, fModel, params, config.tracker_global, config.filter_params, pd);
+        
+        % 2. Run the tracker
+        [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false, showVis, animVis);
+        
+        % 3. Save results
+        results.(comboName).trackSummary = trackSummary;
+        results.(comboName).truthSummary = truthSummary;
+        results.(comboName).trackMetrics = trackMetrics;
+        results.(comboName).truthMetrics = truthMetrics;
+        results.(comboName).time = time;
+        
+        if config.output.print_diagnostics
+            disp(trackSummary); disp(truthSummary);
+            disp(trackMetrics); disp(truthMetrics);
+        end
     end
 end
 
@@ -312,7 +172,7 @@ if config.output.save_results
         mkdir(resultsDir);
     end
     
-    timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+    timestamp = char(datetime("now", "Format", "yyyyMMdd_HHmmss"));
     scenarioName = strrep(configName, "/", "_");
     resultsFile = fullfile(resultsDir, sprintf("results_%s_%s.mat", scenarioName, timestamp));
     
