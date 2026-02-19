@@ -6,7 +6,7 @@
 
   "scenario": {
     "mode": "3D",
-    "num_targets": 1,
+    "num_targets": 2,
     "duration_s": 10
   },
 
@@ -17,7 +17,7 @@
   },
 
   "data_logging": {
-    "use_saved_datalog": false,
+    "use_saved_datalog": true,
     "datalog_file": "cache/myRun1.mat",
     "save_after_generation": true
   },
@@ -63,6 +63,13 @@
       "num_tracks_jpda": 200
     }
   },
+
+  "filter_params": {
+    "init_speed_kmh": 900,
+    "imm_transition_prob": 0.97,
+    "scale_accel_horz": 30,
+    "scale_omega_dot": 30
+  },
   
   "trackers_to_run": {
     "gnn_cv": true,
@@ -75,7 +82,8 @@
   
   "output": {
     "print_diagnostics": true,
-    "plot_initial_scenario": true,
+    "show_visuals": true,
+    "animate_visuals": true,
     "save_results": true,
     "results_directory": "results"
   }

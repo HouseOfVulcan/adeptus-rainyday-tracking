@@ -1,4 +1,4 @@
-function dataLog = helperRunDetections(scenario, enableDegradation)
+function dataLog = runDetections(scenario, enableDegradation)
 %helperRunDetections  Run the scenario and generate a detection log for tracking.
 %
 % OVERVIEW
