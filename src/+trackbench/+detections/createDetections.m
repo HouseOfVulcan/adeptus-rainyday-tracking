@@ -1,4 +1,4 @@
-function dataLog = helperRunDetections(scenario, enableDegradation)
+function dataLog = runDetections(scenario, enableDegradation)
 %helperRunDetections  Run the scenario and generate a detection log for tracking.
 %
 % OVERVIEW
@@ -46,7 +46,6 @@ function dataLog = helperRunDetections(scenario, enableDegradation)
 if nargin < 2
     enableDegradation = false;   % Default to IDEAL
 end
-fprintf("enableDegradation = %d\n", enableDegradation);
 
 % In this scenario layout:
 %   scenario.Platforms{1} -> radar tower platform
@@ -133,7 +132,7 @@ while advance(scenario)
             wScan = weatherSeverity(simTime);
 
             % Poisson mean false detections per scan
-            lambdaFalsePerScan = (1-wScan)*0.0 + wScan*1.0;
+            lambdaFalsePerScan = (1-wScan)*0.0 + wScan*3.0;
             nFalse = poissrnd(lambdaFalsePerScan);
 
             % Reuse measurement parameters if possible
@@ -221,10 +220,9 @@ function detsOut = gateDetectionsROI(detsIn)
     end
 
     % ROI bounds (meters)
-   xMin = -8000;  xMax =  8000;
-yMin = -26000; yMax = -16000;
-zMin = -8000;  zMax =   500;   % allow a lot of altitude variation
-
+    xMin = -8000;  xMax =  8000;
+    yMin = -26000; yMax = -16000;
+    zMin = -8000;  zMax =  500;
 
     keep = false(numel(detsIn),1);
     for ii = 1:numel(detsIn)

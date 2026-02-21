@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:src/+trackbench/+tracking/runTracker.m
 function [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = runTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
+========
+function [trackSummary, truthSummary, trackMetrics, truthMetrics, time, assignLog] = helperRunTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
+>>>>>>>> 1200544 (Updated from main branch, added plot):src/helpers/helperRunTracker.m
 %helperRunTracker  Run a tracker on a logged detection sequence and compute metrics.
 %
 % PURPOSE
@@ -149,6 +153,19 @@ time = 0;
 numSteps = numel(dataLog.Time);
 i = 0;
 
+<<<<<<<< HEAD:src/+trackbench/+tracking/runTracker.m
+========
+% NEW: assignment log buffers (one row per assigned track at each scan)
+logTime  = [];
+logPlat  = [];
+logTrack = [];
+logTruth = [];
+
+% NEW: default so variable always exists (even if no assignments happen)
+assignLog = table([],[],[],[], 'VariableNames', {'Time','PlatformID','TrackID','TruthID'});
+
+
+>>>>>>>> 1200544 (Updated from main branch, added plot):src/helpers/helperRunTracker.m
 %% Initialize static buffers if not animating
 if showVisuals && ~animateVisuals
     allStaticDets = cell(1, numSteps); % Buffer for detections
@@ -243,6 +260,24 @@ while i < numSteps
 
     % Use currentAssignment to map track IDs to truth IDs (for error metrics).
     [trackIDs, truthIDs] = currentAssignment(tam);
+
+    % NEW: log assignments (for timeline plot)
+    if ~isempty(trackIDs)
+        nA = numel(trackIDs);
+
+        % PlatformID for this scan: use sensor platform if available
+        if isfield(dataLog,'SensorPlatformIDs') && numel(dataLog.SensorPlatformIDs) >= i
+            thisPlat = dataLog.SensorPlatformIDs(i);
+        else
+            thisPlat = 1;
+        end
+
+        logTime  = [logTime;  repmat(simTime, nA, 1)]; %#ok<AGROW>
+        logPlat  = [logPlat;  repmat(thisPlat, nA, 1)]; %#ok<AGROW>
+        logTrack = [logTrack; double(trackIDs(:))]; %#ok<AGROW>
+        logTruth = [logTruth; double(truthIDs(:))]; %#ok<AGROW>
+    end
+
 
     % Step error metrics using the current assignment.
     tem(tracks, trackIDs, truths, truthIDs);
@@ -368,6 +403,22 @@ if showVisuals && ~animateVisuals
     end
     drawnow;
 end
+
+
+% ---------------- NEW: finalize assignment log table ----------------
+if ~isempty(logTime)
+    assignLog = table(logTime, logPlat, logTrack, logTruth, ...
+        'VariableNames', {'Time','PlatformID','TrackID','TruthID'});
+else
+    assignLog = table([],[],[],[], 'VariableNames', {'Time','PlatformID','TrackID','TruthID'});
+end
+
+% NEW: Assignment timeline plot in its own tab
+if showVisuals
+    axAssign = tabbedAxes(string(plotTitle) + " | Assignment");
+    plotPlatformToTrackAssignment(axAssign, assignLog, "Platform to Track Assignment");
+end
+% -------------------------------------------------------------------
 
 %% Optional: plot truth trajectories (after run)
 % Useful for visual sanity checks, but disabled during metric-only runs.
