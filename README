@@ -35,40 +35,26 @@ Our solution: Compare multiple tracking approaches (GNN, JPDA, TOMHT) paired wit
 
 ### High-Level Data Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │ MATLAB Simulation Pipeline                                  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Scenario Creation          Detection Generation            │
-│  (Ground Truth)             (Radar Output)                  │
-│         ↓                           ↓                       │
-│  helperCreateScenario3D  →  helperRunDetections             │
-│  - N aircraft targets       - Radar sampling/scan buffers   │
-│  - 3D waypoint trajectories - IDEAL detections              │
-│  - Radar sensor geometry    - RAINY degradation (opt.)      │
-│                               • Detection dropouts          │
-│                               • Inflated noise              │
-│                               • False alarms/clutter        │
+│ User Entrypoint               Core Single-Run Function      │
+│ scripts/runSingleScenario.m → trackbench.runScenario        │
 │                                                             │
 │                  ↓                                          │
-│            dataLog struct                                   │
-│     (Time, Truth, Detections)                               │
+│ trackbench.loader.loadConfig                                │
+│ (config/default.json + optional scenario overrides)         │
 │                  ↓                                          │
-│            Tracker Comparison                               │
-│     helperRunTracker × 6 configurations                     │
-│     - GNN + CV                                              │
-│     - GNN + IMM                                             │
-│     - TOMHT + CV                                            │
-│     - TOMHT + IMM                                           │
-│     - JPDA + CV                                             │
-│     - JPDA + IMM                                            │
+│ trackbench.scenario.createScenario                          │
 │                  ↓                                          │
-│          Performance Metrics                                │
-│     - Position/velocity error (RMSE)                        │
-│     - Track assignment continuity                           │
-│     - Execution time                                        │
-│     - Quality score (0-100%)                                │
+│ trackbench.detections.createDetections                      │
+│                  ↓                                          │
+│ trackbench.tracking.runTracker × enabled configurations     │
+│ (GNN/CV, GNN/IMM, TOMHT/CV, TOMHT/IMM, JPDA/CV, JPDA/IMM)  │
+│                  ↓                                          │
+│ Metrics + reporting + optional result save                  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -91,12 +77,11 @@ trackbench/
 │     └─ jpda.json
 ├─ data/
 │  ├─ detections/
+│  │  └─ (detection logs)
 │  └─ results/
-│     ├─ .gitkeep
-│     └─ results_default_20260219_155133.mat
+│     └─ (result logs)
 ├─ results/
-│  ├─ results_default_20260221_204851.mat
-│  └─ results_default_20260222_105448.mat
+│  └─ results_<scenario>_<timestamp>.mat
 ├─ scripts/
 │  └─ runSingleScenario.m
 └─ src/
@@ -105,17 +90,13 @@ trackbench/
       ├─ +detections/
       │  └─ createDetections.m
       ├─ +loader/
-      │  ├─ .gitkeep
       │  └─ loadConfig.m
       ├─ +metrics/
-      │  └─ .gitkeep
       ├─ +orchestrator/
-      │  └─ .gitkeep
       ├─ +reporting/
       │  ├─ plotInitialScenario.m
       │  └─ plotScenarioAndDetections.m
       ├─ +results/
-      │  └─ .gitkeep
       ├─ +scenario/
       │  └─ createScenario.m
       └─ +tracking/
@@ -190,7 +171,7 @@ scripts/
 
 ### Degradation Mechanism (RAINY Mode)
 
-In `helperRunDetections.m`, when `enableDegradation = true`:
+In `src/+trackbench/+detections/createDetections.m`, when `enableDegradation = true`:
 
 ```matlab
 % Per-update degradation (after radar call)
@@ -207,63 +188,63 @@ Where `w = weatherSeverity(t)` is 0 (clear) or 1 (storm).
 
 ## Usage
 
-### Basic Run: Compare Trackers
+### User Entrypoint (Recommended)
+
+Run from the repository root in MATLAB:
 
 ```matlab
-% In MATLAB command window:
->> trackingWithWeather
-
-% This will:
-% 1. Run scenario in RAINY mode (enableDegradation = true at top of script)
-% 2. Generate detections with degradation
-% 3. Run all 6 tracker combos
-% 4. Print metric tables and timing
-% 5. Display tabbed figures with visualization
+addpath("scripts");
+results = runSingleScenario("default");
 ```
 
-### Toggle IDEAL vs RAINY
+Use `scripts/` as the user-facing entrypoint folder. Add new top-level run scripts there as the project grows.
 
-At the top of `trackingWithWeather.m`:
-```matlab
-enableDegradation = true;   % RAINY (degraded radar)
-enableDegradation = false;  % IDEAL (clean radar)
-```
+### Core Function Call (Single Run)
 
-### Load/Save Detection Cache
-
-To speed up repeated runs:
-```matlab
-useSavedDataLog = true;               % Load from cache
-dataLogFile = "cache/myRun1.mat";
-```
-
-### Customize Scenario
+`src/+trackbench/runScenario.m` is the package-level single-run function call:
 
 ```matlab
-% In trackingWithWeather.m, around line ~80:
-NumTargets = 4;           % Number of aircraft
-SceneDuration = 60;       % Seconds
-scenarioMode = "3D";      % Use 3D scenario builder
+addpath(genpath("src"));
+results = trackbench.runScenario("default");
 ```
 
-Or pass parameters directly:
-```matlab
-scenario = helperCreateScenario3D("NumTargets", 5, "SceneDuration", 120);
+### Select IDEAL vs RAINY
+
+In `config/default.json`:
+
+```json
+"degradation": {
+  "enabled": false
+}
 ```
 
-### Tune Tracker Parameters
+Set `enabled` to `true` for degraded (RAINY) runs.
 
-Edit `trackingWithWeather.m` sections like:
-```matlab
-% GNN-specific knobs
-gate = 35;                    % Association threshold
-farGNN = 1e-2;                % False alarm rate assumption
-pd = 0.7;                     % Detection probability
+### Configure Detection Cache
 
-% TOMHT-specific knobs
-confirmThresh = 30;           % Score threshold for confirmation
-maxBranches = 3;              % Hypothesis limit per track
+In `config/default.json`:
+
+```json
+"data_logging": {
+  "use_saved_datalog": true,
+  "datalog_file": "cache/myRun1.mat",
+  "save_after_generation": true
+}
 ```
+
+### Customize Scenario and Tracker Tuning
+
+- Scenario settings:
+  - `scenario.mode`
+  - `scenario.num_targets`
+  - `scenario.duration_s`
+- Tracker settings:
+  - `tracker_params.ideal.*`
+  - `tracker_params.degraded.*`
+  - `tracker_global.*`
+  - `filter_params.*`
+- Tracker enable/disable flags:
+  - `trackers_to_run.*`
 
 ---
 
@@ -293,11 +274,11 @@ maxBranches = 3;              % Hypothesis limit per track
   - Track labels for debugging
 
 
-- **3D animation** (`plotInitialScenario.m`) - Animated 3D scenario evolution
+- **3D animation** (`src/+trackbench/+reporting/plotInitialScenario.m`) - Animated 3D scenario evolution
 
 ### Regenerating Saved Artifacts
 
-Running `trackingWithWeather.m` can write generated artifacts to `cache/`, `results/`, `Plots/`, `images/`, and `html/`. These outputs are derived from the scenario run and are intentionally gitignored, so re-run the script to recreate them as needed.
+Running `scripts/runSingleScenario.m` or `trackbench.runScenario` can write generated artifacts to `cache/` and `results/` depending on config flags.
 
 ---
 
@@ -338,21 +319,22 @@ Running `trackingWithWeather.m` can write generated artifacts to `cache/`, `resu
   - Metrics: `trackAssignmentMetrics`, `trackErrorMetrics`
 
 ### File Call Graph
-```
-trackingWithWeather.m
-├── helperCreateScenario3D.m
-│   └── addAircraft() [nested]
-├── helperRunDetections.m
-│   ├── weatherSeverity() [nested]
-│   ├── falseMeasInSurveillanceVolume() [nested]
-│   └── gateDetectionsROI() [nested]
-├── initCVFilter.m
-├── initIMMFilter.m
-├── helperRunTracker.m
-│   ├── gateDetectionsROI() [duplicated locally]
-│   └── trackAssignmentMetrics / trackErrorMetrics [toolbox]
-└── plotInitialScenario.m
-    └── plotInitialScenario() [nested]
+```text
+scripts/runSingleScenario.m
+└── trackbench.runScenario(configName)
+    ├── trackbench.loader.loadConfig
+    ├── trackbench.scenario.createScenario
+    │   └── addAircraft() [nested]
+    ├── trackbench.detections.createDetections
+    │   ├── weatherSeverity() [nested]
+    │   ├── falseMeasInSurveillanceVolume() [nested]
+    │   └── gateDetectionsROI() [local function]
+    ├── trackbench.tracking.buildTracker
+    │   ├── trackbench.tracking.initCVFilter
+    │   └── trackbench.tracking.initIMMFilter
+    ├── trackbench.tracking.runTracker
+    │   └── trackAssignmentMetrics / trackErrorMetrics [toolbox]
+    └── trackbench.reporting.plotInitialScenario
 ```
 
 ---
@@ -389,19 +371,19 @@ Why North-East-Down, not XYZ or ENU?
 
 ### Issue: Tracks keep breaking in degraded scenarios
 - **Cause**: `MaxUnreportedPeriod` too short for missed detections
-- **Solution**: In `helperRunTracker.m`, increase `maxGap` parameter
+- **Solution**: In `src/+trackbench/+tracking/runTracker.m`, increase `maxGap` parameter
 
 ### Issue: JPDA fails to initiate tracks
-- **Cause**: `NewTargetDensity` (betaJPDA) too low
-- **Solution**: In `trackingWithWeather.m`, raise `betaJPDA` (try 1e-11)
+- **Cause**: `beta_jpda` too low in degraded parameters
+- **Solution**: Increase `tracker_params.degraded.beta_jpda` in `config/default.json` (for example `1e-11`)
 
 ### Issue: Clutter explodes in RAINY mode
 - **Cause**: `lambdaFalsePerScan` too high, or ROI gate miscalibrated
-- **Solution**: Check `weatherSeverity()` and `gateDetectionsROI()` bounds
+- **Solution**: Check `weatherSeverity()` and `gateDetectionsROI()` in `src/+trackbench/+detections/createDetections.m`
 
 ### Issue: Runtime is slow
 - **Cause**: TOMHT + IMM is computationally expensive
-- **Solution**: Cap `maxBranches` lower, or use GNN/JPDA for real-time work
+- **Solution**: Lower `tracker_params.*.max_branches` in `config/default.json`, or disable heavy combos in `trackers_to_run`
 
 ---
 
@@ -445,8 +427,5 @@ Boeing Proprietary. Contact team lead for details.
 
 ---
 
-**Last Updated:** January 26, 2026  
+**Last Updated:** February 22, 2026  
 **Current Phase:** Algorithm validation (MATLAB) → C++ conversion (upcoming)
-
-this is a test
-this is a better test
