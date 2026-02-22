@@ -7,7 +7,7 @@
   "scenario": {
     "mode": "3D",
     "num_targets": 2,
-    "duration_s": 10
+    "duration_s": 5
   },
 
   "degradation": {

@@ -1,4 +1,4 @@
-function [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
+function [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = runTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
 %helperRunTracker  Run a tracker on a logged detection sequence and compute metrics.
 %
 % PURPOSE
@@ -493,4 +493,33 @@ function detsOut = gateDetectionsROI(detsIn, roi)
     end
     
     detsOut = detsIn(keep);
+end
+
+
+function ax = tabbedAxes(tabTitle)
+    %tabbedAxes  Get an axes in a persistent, single window with tabbed layout.
+    % Each call creates (or reuses) a shared figure and creates a new tab with an axes.
+
+    persistent hFig hTabs
+
+    % If window was closed, recreate it
+    if isempty(hFig) || ~isvalid(hFig)
+        hFig = figure( ...
+            'Name', 'Tracking Example - All Track Displays', ...
+            'NumberTitle', 'off', ...
+            'Color', [1 1 1], ...
+            'WindowStyle', 'normal');   % IMPORTANT: single popup window
+
+        hTabs = uitabgroup(hFig, 'TabLocation', 'top');
+    end
+
+    % Create a new tab + axes
+    t = uitab(hTabs, 'Title', tabTitle);
+    ax = axes('Parent', t);
+    grid(ax, 'on');
+
+    % Make interaction tools behave nicely
+    rotate3d(hFig, 'on');   % allows rotation when view is 3D
+    zoom(hFig, 'on');
+    pan(hFig, 'off');       % optional: keep off unless you want pan default
 end
