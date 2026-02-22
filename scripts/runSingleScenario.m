@@ -1,4 +1,4 @@
-function results = runSingleScenario(configName,  varargin)
+function results = runSingleScenario(configName)
 % trackingWithWeather: Top-level driver for tracking + degradation experiments.
 %
 % PURPOSE
@@ -9,7 +9,7 @@ function results = runSingleScenario(configName,  varargin)
 %   1. Load configuration (scenario parameters)
 %   2. Create scenario and generate/load detections
 %   3. Configure tracker parameters based on degradation mode
-%   4. Run all tracker combinations and collect metrics
+%   4. Run all tracker co/home/boop/projects/trackbench/src/+trackbench/+detections/createDetections.mmbinations and collect metrics
 %
 % BASELINE SOURCE
 %   Adapted from MathWorks example:
@@ -31,7 +31,7 @@ function results = runSingleScenario(configName,  varargin)
 %   results = runSingleScenario("default", "plot", true)
 
 arguments
-    configName (1,1) string = "default"
+    configName (1,1) string = "default";
 end
 
 clc; close all;
@@ -40,7 +40,7 @@ clc; close all;
 addProjectPaths();
 
 %% Load Configuration
-config = load_config(configName);            % JSON loader from config dir
+config = trackbench.loader.loadConfig(configName);            % JSON loader from config dir
 
 %% Extract Scenario Parameters
 scenarioMode  = config.scenario.mode;        
@@ -83,14 +83,14 @@ if useSavedDataLog
     fprintf("[INFO] Loaded dataLog from %s\n", dataLogFile);
 else
     if scenarioMode == "3D"
-        scenario = createScenario3D( ...
+        scenario = trackbench.scenario.createScenario( ...
             "NumTargets", numTargets, ...
             "SceneDuration", sceneDuration);
     else
         error("Only 3D scenarios are currently supported.");
     end
 
-    dataLog = runDetections(scenario, enableDegradation);
+    dataLog = trackbench.detections.createDetections(scenario, enableDegradation);
 
     if config.data_logging.save_after_generation
         save(dataLogFile, "dataLog", "-v7.3");
@@ -113,7 +113,7 @@ end
 
 % Plot 3D Scenario if visuals are enabled
 if showVis
-    plotInitialScenario(dataLog, animVis);
+    trackbench.reporting.plotInitialScenario(dataLog, animVis);
 end
 
 %% Quick stats on detection count per scan
@@ -152,10 +152,10 @@ for c = 1:length(trackerCombos)
         fprintf('\n============ %s + %s ============\n', tType, fModel);
         
         % 1. Use the new factory to build the tracker
-        tracker = buildTracker(tType, fModel, params, config.tracker_global, config.filter_params, pd);
+        tracker = trackbench.tracking.buildTracker(tType, fModel, params, config.tracker_global, config.filter_params, pd);
         
         % 2. Run the tracker
-        [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = helperRunTracker(dataLog, tracker, false, showVis, animVis);
+        [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = trackbench.tracking.runTracker(dataLog, tracker, false, showVis, animVis);
         
         % 3. Save results
         results.(comboName).trackSummary = trackSummary;

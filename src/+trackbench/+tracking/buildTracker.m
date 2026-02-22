@@ -5,9 +5,9 @@ function tracker = buildTracker(trackerType, filterModel, params, globalParams, 
     % 1. The Fix: Wrap the filter initialization function to bake in the config parameters.
     % Now the tracker sees a function that only takes `det`, keeping MATLAB happy!
     if strcmpi(filterModel, 'CV')
-        initFcn = @(det) initCVFilter(det, filterParams);
+        initFcn = @(det) trackbench.tracking.initCVFilter(det, filterParams);
     elseif strcmpi(filterModel, 'IMM')
-        initFcn = @(det) initIMMFilter(det, filterParams);
+        initFcn = @(det) trackbench.tracking.initIMMFilter(det, filterParams);
     else
         error('[TRACKER] Unknown filter model: %s. Use CV or IMM.', filterModel);
     end
