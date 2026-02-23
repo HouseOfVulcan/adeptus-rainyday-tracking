@@ -16,6 +16,7 @@ classdef ResultsSchema
             results.metrics = struct();
             results.execution_time_s = 0;
             results.tracker_diagnostics = struct();
+            results.tracker_results = struct();
             results.errors = {};
         end
         
