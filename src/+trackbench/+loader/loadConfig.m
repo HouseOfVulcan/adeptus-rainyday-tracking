@@ -1,10 +1,10 @@
-function config = load_config(configName, varargin)
-% LOAD_CONFIG Load and merge configuration files with override support
+function config = loadConfig(configName, varargin)
+% LOADCONFIG Load and merge configuration files with override support
 %
 % Usage:
-%   config = load_config("default")                    % Load base config
-%   config = load_config("scenarios/heavy_rain")       % Load scenario with overrides
-%   config = load_config("default", "enableDegradation", true)  % Runtime override
+%   config = loadConfig("default")                    % Load base config
+%   config = loadConfig("scenarios/heavy_rain")       % Load scenario with overrides
+%   config = loadConfig("default", "enableDegradation", true)  % Runtime override
 %
 % INPUTS
 %   configName : string, name of config file (without .json) or full path
