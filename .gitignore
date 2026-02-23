@@ -15,13 +15,11 @@ images/*.png
 # OS/editor noise
 .DS_Store
 Thumbs.db
-
 notes
+.nvimlog
+
 
 # vscode config files
 .vscode
 
 
-chat
-
-git_workflow.md
