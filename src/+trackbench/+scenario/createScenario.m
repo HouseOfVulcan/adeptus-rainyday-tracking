@@ -1,5 +1,5 @@
-function scenario = createScenario3D(varargin)
-%helperCreateScenario3D  Create a trackingScenario with a tower-mounted rotating radar
+function scenario = createScenario(varargin)
+%createScenario:  Create a trackingScenario with a tower-mounted rotating radar
 %                        and a configurable number of 3D aircraft targets.
 %
 % PURPOSE
