@@ -29,7 +29,8 @@ function [sensors, metas, sensorCatalog] = loadSensors(sensorConfigName)
 %   sensorCatalog : the raw parsed JSON struct (for inspection/logging)
 %
 % JSON FORMAT
-%   See config/sensors.json for the full catalog format. Key fields per sensor:
+%   See config/components/sensors/sensors.json for the full catalog format.
+%   Key fields per sensor:
 %     "name"     : human-readable label
 %     "type"     : buildSensor type string (e.g. "PSR", "SSR", "IRST")
 %     "enabled"  : true/false — only enabled sensors are built
@@ -53,8 +54,11 @@ if ~endsWith(sensorConfigName, ".json")
     sensorConfigName = sensorConfigName + ".json";
 end
 
-% Look in config/sensors/ first, then fall back to config/ for compatibility
-jsonPath = fullfile(pwd, "config", "sensors", sensorConfigName);
+% Prefer reorg path, then fall back to legacy paths for compatibility.
+jsonPath = fullfile(pwd, "config", "components", "sensors", sensorConfigName);
+if ~isfile(jsonPath)
+    jsonPath = fullfile(pwd, "config", "sensors", sensorConfigName);
+end
 if ~isfile(jsonPath)
     jsonPath = fullfile(pwd, "config", sensorConfigName);
 end
