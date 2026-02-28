@@ -13,7 +13,7 @@
 % CONFIGURE
 %   config/default.json → scenarios_to_run   (toggle scenarios on/off)
 %   config/default.json → trackers_to_run    (toggle trackers on/off)
-%   config/sensors/sensors.json              (toggle sensors — used in MY SENSORS mode)
+%   config/components/sensors/sensors.json              (toggle sensors — used in MY SENSORS mode)
 %
 % See also: runSingleScenario, trackbench.batch.runAllScenarios
 

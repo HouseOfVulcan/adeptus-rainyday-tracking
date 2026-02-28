@@ -18,7 +18,7 @@ root = resolveRootFromThisFile();
 addpath(genpath(fullfile(root, "src")));
 
 %% Load Configuration
-config = trackbench.loader.loadConfig(configName);
+config = trackbench.config.loadConfig(configName);
 
 %% Resolve IO paths now that config is available
 paths = buildPaths(root, config);
