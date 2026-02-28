@@ -55,12 +55,12 @@ if ~endsWith(sensorConfigName, ".json")
 end
 
 % Prefer reorg path, then fall back to legacy paths for compatibility.
-jsonPath = fullfile(pwd, "config", "components", "sensors", sensorConfigName);
+jsonPath = trackbench.util.pathFromRoot("config", "components", "sensors", sensorConfigName);
 if ~isfile(jsonPath)
-    jsonPath = fullfile(pwd, "config", "sensors", sensorConfigName);
+    jsonPath = trackbench.util.pathFromRoot("config", "sensors", sensorConfigName);
 end
 if ~isfile(jsonPath)
-    jsonPath = fullfile(pwd, "config", sensorConfigName);
+    jsonPath = trackbench.util.pathFromRoot("config", sensorConfigName);
 end
 if ~isfile(jsonPath)
     error('loadSensors:fileNotFound', 'Sensor config not found: %s', jsonPath);

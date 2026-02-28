@@ -22,9 +22,8 @@ arguments
     useMySensors (1,1) logical = false
 end
 
-% Ensure package is on the path
-srcDir = fullfile(fileparts(mfilename('fullpath')), '..', 'src');
-addpath(genpath(srcDir));
+% Ensure package is on the path and root context is initialized.
+setupTrackbench();
 
 allResults = trackbench.batch.runAllScenarios("default", useMySensors);
 end

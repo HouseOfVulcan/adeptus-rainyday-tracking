@@ -1,6 +1,5 @@
 %% debugFireControl.m — Verify log(det(S)) and sweep gate values
-cd('C:\Users\Admin\Documents\RAINY DAY GIT COPY\adeptus-rainyday-tracking');
-addpath(genpath(fullfile(pwd, 'src')));
+setupTrackbench();
 
 scenName = 'fire_control_engagement';
 [scenario, config, sensors, metas] = trackbench.scenario.loadScenario(scenName);

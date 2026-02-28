@@ -116,7 +116,7 @@ saveFigs  = getOr(baseConfig.output, 'save_figures', false);
 %% Prepare figure output directory
 if saveFigs
     timestamp = char(datetime("now", "Format", "yyyyMMdd_HHmmss"));
-    figDir = fullfile(pwd, getOr(baseConfig.output, 'results_directory', 'outputs'), ...
+    figDir = fullfile(trackbench.util.pathFromRoot(getOr(baseConfig.output, 'results_directory', 'outputs')), ...
                       ['figures_' timestamp]);
     if ~exist(figDir, 'dir'); mkdir(figDir); end
     fprintf('[FIGURES] Saving .fig files to: %s\n\n', figDir);
@@ -172,7 +172,7 @@ for s = 1:numel(enabledScenarios)
 
     %% Cache detection log
     if isfield(config.data_logging, 'save_after_generation') && config.data_logging.save_after_generation
-        cacheFile = fullfile(pwd, config.data_logging.datalog_file);
+        cacheFile = trackbench.util.pathFromRoot(config.data_logging.datalog_file);
         cacheDir  = fileparts(cacheFile);
         if ~exist(cacheDir, 'dir'); mkdir(cacheDir); end
         save(cacheFile, 'dataLog', '-v7.3');
@@ -276,7 +276,7 @@ end
 
 %% Save all results
 if baseConfig.output.save_results
-    resultsDir = fullfile(pwd, baseConfig.output.results_directory);
+    resultsDir = trackbench.util.pathFromRoot(baseConfig.output.results_directory);
     if ~exist(resultsDir, 'dir'); mkdir(resultsDir); end
     if ~exist('timestamp', 'var')
         timestamp = char(datetime("now", "Format", "yyyyMMdd_HHmmss"));

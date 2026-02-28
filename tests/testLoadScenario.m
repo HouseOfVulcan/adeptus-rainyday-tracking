@@ -2,7 +2,8 @@
 % Run from project root: >> run('tests/testLoadScenario.m')
 
 clc; close all;
-addpath(fullfile(pwd, 'src'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'scripts'));
+setupTrackbench();
 
 fprintf('=== loadScenario Test ===\n\n');
 

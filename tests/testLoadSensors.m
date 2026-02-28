@@ -2,7 +2,8 @@
 % Run from V2 root: >> testLoadSensors
 
 clc; close all;
-addpath(genpath(fullfile(pwd, 'src', 'helpers')));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'scripts'));
+setupTrackbench();
 
 fprintf('=== loadSensors Test ===\n\n');
 
@@ -12,7 +13,7 @@ failed = 0;
 %% Test 1: Default catalog loads (PSR + SSR enabled)
 fprintf('--- Test 1: Default catalog ---\n');
 try
-    [sensors, metas, catalog] = loadSensors();
+    [sensors, metas, catalog] = trackbench.sensors.loadSensors();
     
     assert(isfield(sensors, 'tower'), 'No tower platform group');
     assert(numel(sensors.tower) == 2, 'Expected 2 tower sensors, got %d', numel(sensors.tower));
@@ -39,7 +40,7 @@ end
 %% Test 2: Scenario integration — attach to trackingScenario
 fprintf('\n--- Test 2: Scenario integration ---\n');
 try
-    [sensors, ~] = loadSensors();
+    [sensors, ~] = trackbench.sensors.loadSensors();
     
     scen = trackingScenario;
     scen.UpdateRate = sensors.tower{1}.UpdateRate;
@@ -64,16 +65,16 @@ end
 fprintf('\n--- Test 3: All sensors enabled (temp catalog) ---\n');
 try
     % Read the catalog, enable everything, write to temp file
-    raw = jsondecode(fileread(fullfile(pwd, 'config', 'sensors.json')));
+    raw = jsondecode(fileread(trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors.json')));
     for i = 1:numel(raw.sensors)
         raw.sensors(i).enabled = true;
     end
-    tempPath = fullfile(pwd, 'config', 'sensors_all_test.json');
+    tempPath = trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors_all_test.json');
     fid = fopen(tempPath, 'w');
     fprintf(fid, '%s', jsonencode(raw));
     fclose(fid);
     
-    [sensors, metas] = loadSensors('sensors_all_test');
+    [sensors, metas] = trackbench.sensors.loadSensors('sensors_all_test');
     
     % Count total sensors across all platforms
     platforms = fieldnames(sensors);
@@ -116,16 +117,16 @@ end
 %% Test 4: No sensors enabled
 fprintf('\n--- Test 4: No sensors enabled ---\n');
 try
-    raw = jsondecode(fileread(fullfile(pwd, 'config', 'sensors.json')));
+    raw = jsondecode(fileread(trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors.json')));
     for i = 1:numel(raw.sensors)
         raw.sensors(i).enabled = false;
     end
-    tempPath = fullfile(pwd, 'config', 'sensors_none_test.json');
+    tempPath = trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors_none_test.json');
     fid = fopen(tempPath, 'w');
     fprintf(fid, '%s', jsonencode(raw));
     fclose(fid);
     
-    [sensors, ~] = loadSensors('sensors_none_test');
+    [sensors, ~] = trackbench.sensors.loadSensors('sensors_none_test');
     
     platforms = fieldnames(sensors);
     assert(isempty(platforms), 'Expected no platforms, got %d', numel(platforms));
@@ -143,7 +144,7 @@ end
 %% Test 5: Parameter overrides from JSON
 fprintf('\n--- Test 5: Parameter overrides ---\n');
 try
-    raw = jsondecode(fileread(fullfile(pwd, 'config', 'sensors.json')));
+    raw = jsondecode(fileread(trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors.json')));
     % Disable all, enable only PSR with custom params
     for i = 1:numel(raw.sensors)
         raw.sensors(i).enabled = false;
@@ -153,12 +154,12 @@ try
     raw.sensors(1).params.pd = 0.75;
     raw.sensors(1).params.rangeLimits = [0; 200000];
     
-    tempPath = fullfile(pwd, 'config', 'sensors_override_test.json');
+    tempPath = trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors_override_test.json');
     fid = fopen(tempPath, 'w');
     fprintf(fid, '%s', jsonencode(raw));
     fclose(fid);
     
-    [sensors, metas] = loadSensors('sensors_override_test');
+    [sensors, metas] = trackbench.sensors.loadSensors('sensors_override_test');
     
     psr = sensors.tower{1};
     meta = metas.tower{1};
@@ -180,7 +181,7 @@ end
 %% Test 6: Multi-platform grouping
 fprintf('\n--- Test 6: Multi-platform grouping ---\n');
 try
-    raw = jsondecode(fileread(fullfile(pwd, 'config', 'sensors.json')));
+    raw = jsondecode(fileread(trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors.json')));
     % Enable PSR (tower), AESA (aircraft), MARITIME (ship)
     for i = 1:numel(raw.sensors)
         raw.sensors(i).enabled = false;
@@ -192,12 +193,12 @@ try
     % MARITIME = index 10 (ship)
     raw.sensors(10).enabled = true;
     
-    tempPath = fullfile(pwd, 'config', 'sensors_multi_test.json');
+    tempPath = trackbench.util.pathFromRoot('config', 'components', 'sensors', 'sensors_multi_test.json');
     fid = fopen(tempPath, 'w');
     fprintf(fid, '%s', jsonencode(raw));
     fclose(fid);
     
-    [sensors, metas] = loadSensors('sensors_multi_test');
+    [sensors, metas] = trackbench.sensors.loadSensors('sensors_multi_test');
     
     platforms = fieldnames(sensors);
     assert(numel(platforms) == 3, 'Expected 3 platforms, got %d', numel(platforms));

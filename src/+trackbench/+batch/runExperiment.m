@@ -55,7 +55,7 @@ fprintf("==============================\n\n");
 
 %% Generate/Load Detections
 useSavedDataLog = config.data_logging.use_saved_datalog;
-dataLogFile     = fullfile(pwd, config.data_logging.datalog_file);
+dataLogFile     = trackbench.util.pathFromRoot(config.data_logging.datalog_file);
 
 if useSavedDataLog && isfile(dataLogFile)
     load(dataLogFile, "dataLog");
@@ -147,7 +147,7 @@ end
 
 %% Save results
 if config.output.save_results
-    resultsDir = fullfile(pwd, config.output.results_directory);
+    resultsDir = trackbench.util.pathFromRoot(config.output.results_directory);
     if ~exist(resultsDir, "dir"); mkdir(resultsDir); end
     timestamp   = char(datetime("now", "Format", "yyyyMMdd_HHmmss"));
     resultsFile = fullfile(resultsDir, sprintf("results_%s_%s.mat", strrep(configName,"/","_"), timestamp));

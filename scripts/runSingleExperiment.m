@@ -2,7 +2,7 @@
 %
 % USAGE
 %   1. cd to the adeptus-rainyday-tracking root directory
-%   2. addpath('src')
+%   2. addpath('scripts')
 %   3. runSingleExperiment              % uses default_reRunDetections config
 %   4. runSingleExperiment("default")   % uses default config
 %
@@ -17,5 +17,6 @@ arguments
     configName (1,1) string = "default_reRunDetections"
 end
 
+setupTrackbench();
 trackbench.batch.runExperiment(configName);
 end

@@ -2,7 +2,8 @@
 % Run from V2 root: >> testBuildSensor
 
 clc; close all;
-addpath(genpath(fullfile(pwd, 'src', 'helpers')));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'scripts'));
+setupTrackbench();
 
 fprintf('=== buildSensor Factory Test ===\n\n');
 
@@ -17,7 +18,7 @@ radarTypes = {'PSR', 'SSR', 'ASR', 'ARSR', 'PAR', 'TWS', 'AESA', ...
 for i = 1:numel(radarTypes)
     sType = radarTypes{i};
     try
-        [s, m] = buildSensor(i, sType);
+        [s, m] = trackbench.sensors.buildSensor(i, sType);
         assert(isa(s, 'fusionRadarSensor'), 'Wrong class');
         assert(s.SensorIndex == i, 'SensorIndex mismatch');
         assert(~isempty(m.type), 'Empty meta type');
@@ -39,7 +40,7 @@ for i = 1:numel(irTypes)
     sType = irTypes{i};
     idx = 20 + i;
     try
-        [s, m] = buildSensor(idx, sType);
+        [s, m] = trackbench.sensors.buildSensor(idx, sType);
         assert(isa(s, 'irSensor'), 'Wrong class: %s', class(s));
         assert(s.SensorIndex == idx, 'SensorIndex mismatch');
         fprintf('  [PASS] %-15s | class=%-20s | idx=%d\n', sType, class(s), s.SensorIndex);
@@ -59,7 +60,7 @@ for i = 1:numel(sonarTypes)
     sType = sonarTypes{i};
     idx = 30 + i;
     try
-        [s, m] = buildSensor(idx, sType);
+        [s, m] = trackbench.sensors.buildSensor(idx, sType);
         assert(isa(s, 'sonarSensor'), 'Wrong class: %s', class(s));
         assert(s.SensorIndex == idx, 'SensorIndex mismatch');
         fprintf('  [PASS] %-15s | class=%-20s | idx=%d\n', sType, class(s), s.SensorIndex);
@@ -79,7 +80,7 @@ for i = 1:numel(lidarTypes)
     sType = lidarTypes{i};
     idx = 40 + i;
     try
-        [s, m] = buildSensor(idx, sType);
+        [s, m] = trackbench.sensors.buildSensor(idx, sType);
         assert(isa(s, 'monostaticLidarSensor'), 'Wrong class: %s', class(s));
         assert(s.SensorIndex == idx, 'SensorIndex mismatch');
         fprintf('  [PASS] %-15s | class=%-20s | idx=%d\n', sType, class(s), s.SensorIndex);
@@ -94,7 +95,7 @@ end
 
 %% ---- ADS-B ----
 try
-    [tx, m] = buildSensor(50, 'ADSB_TX', 'ICAO', 'A1B2C3');
+    [tx, m] = trackbench.sensors.buildSensor(50, 'ADSB_TX', 'ICAO', 'A1B2C3');
     assert(isa(tx, 'adsbTransponder'), 'Wrong class: %s', class(tx));
     fprintf('  [PASS] %-15s | class=%-20s\n', 'ADSB_TX', class(tx));
     passed = passed + 1;
@@ -106,7 +107,7 @@ catch ME
 end
 
 try
-    [rx, m] = buildSensor(51, 'ADSB_RX');
+    [rx, m] = trackbench.sensors.buildSensor(51, 'ADSB_RX');
     assert(isa(rx, 'adsbReceiver'), 'Wrong class: %s', class(rx));
     fprintf('  [PASS] %-15s | class=%-20s\n', 'ADSB_RX', class(rx));
     passed = passed + 1;
@@ -119,7 +120,7 @@ end
 
 %% ---- CUSTOM TEMPLATE ----
 try
-    [tmpl, m] = buildSensor(99, 'CUSTOM');
+    [tmpl, m] = trackbench.sensors.buildSensor(99, 'CUSTOM');
     assert(isstruct(tmpl), 'Expected struct template');
     assert(isfield(tmpl, 'requiredProperties'), 'Missing requiredProperties');
     fprintf('  [PASS] %-15s | struct template returned\n', 'CUSTOM');
@@ -135,7 +136,7 @@ end
 fprintf('\n--- Parameter Override Tests ---\n');
 
 try
-    [s, m] = buildSensor(60, 'PSR', 'rpm', 25, 'pd', 0.75, 'rangeLimits', [0 200000]);
+    [s, m] = trackbench.sensors.buildSensor(60, 'PSR', 'rpm', 25, 'pd', 0.75, 'rangeLimits', [0 200000]);
     assert(abs(m.rpm - 25) < 0.01, 'RPM override failed');
     assert(abs(m.pd - 0.75) < 0.01, 'Pd override failed');
     assert(abs(m.rangeLimits_m(2) - 200000) < 1, 'Range override failed');
@@ -147,7 +148,7 @@ catch ME
 end
 
 try
-    [s, m] = buildSensor(61, 'SSR', 'pd', 0.95, 'rangeLimits', [0 300000]);
+    [s, m] = trackbench.sensors.buildSensor(61, 'SSR', 'pd', 0.95, 'rangeLimits', [0 300000]);
     assert(abs(m.pd - 0.95) < 0.01, 'SSR Pd override failed');
     fprintf('  [PASS] SSR with overrides (pd=0.95, range=300km)\n');
     passed = passed + 1;
@@ -158,7 +159,7 @@ end
 
 %% ---- UNMATCHED PASSTHROUGH TEST ----
 try
-    [s, m] = buildSensor(62, 'PSR', 'HasRangeRate', true);
+    [s, m] = trackbench.sensors.buildSensor(62, 'PSR', 'HasRangeRate', true);
     assert(s.HasRangeRate == true, 'Unmatched passthrough failed');
     fprintf('  [PASS] Unmatched passthrough (HasRangeRate=true)\n');
     passed = passed + 1;
@@ -171,8 +172,8 @@ end
 fprintf('\n--- Scenario Integration Test ---\n');
 
 try
-    [psr, ~] = buildSensor(1, 'PSR');
-    [ssr, ~] = buildSensor(2, 'SSR');
+    [psr, ~] = trackbench.sensors.buildSensor(1, 'PSR');
+    [ssr, ~] = trackbench.sensors.buildSensor(2, 'SSR');
 
     scen = trackingScenario;
     scen.UpdateRate = psr.UpdateRate;
