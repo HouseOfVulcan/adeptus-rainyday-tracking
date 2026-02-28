@@ -127,9 +127,9 @@ adeptus-rainyday-tracking/
 ├── scripts/
 │   ├── runSingleScenario.m          ← Single scenario (smart router)
 │   ├── runAllScenarios.m            ← Batch runner (showcase or my-sensors)
-│   ├── runSingleExperiment.m        ← Single scenario driver (legacy)
-│   ├── quickBatch.m                 ← Quick batch wrapper
-│   └── runTrackingWithWeather.m     ← Weather degradation driver
+│   ├── setupTrackbench.m            ← One-call path/root bootstrap
+│   └── debug/
+│       └── debugFireControl.m       ← Fire-control tracking diagnostics
 │
 ├── tests/
 │   ├── testBuildSensor.m
