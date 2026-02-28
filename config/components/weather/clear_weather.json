@@ -1,0 +1,8 @@
+{
+  "name": "clear_weather",
+  "overrides": {
+    "degradation.enabled": false,
+    "environment.ground_clutter": false,
+    "environment.clutter_density": 0.2
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "storm_window",
+  "overrides": {
+    "degradation.enabled": true,
+    "degradation.type": "heavy_rain",
+    "tracker_global.detection_probability.degraded": 0.5,
+    "environment.ground_clutter": true,
+    "environment.clutter_density": 0.8
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "User scenario override layer for local testing",
+  "overrides": {
+    "scenario.duration_s": 45,
+    "scenario.num_targets": 2,
+    "degradation.enabled": false,
+    "data_logging.use_saved_datalog": false,
+    "data_logging.datalog_file": "cache/my_test.mat"
+  }
+}

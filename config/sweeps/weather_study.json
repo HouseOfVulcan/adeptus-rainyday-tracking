@@ -1,0 +1,22 @@
+{
+  "name": "weather_study",
+  "description": "Batch sweep definition for weather sensitivity",
+  "base_scenario": "default",
+  "runs": [
+    {
+      "name": "clear_baseline",
+      "overrides": {
+        "degradation.enabled": false,
+        "environment.clutter_density": 0.2
+      }
+    },
+    {
+      "name": "storm_case",
+      "overrides": {
+        "degradation.enabled": true,
+        "degradation.type": "heavy_rain",
+        "environment.clutter_density": 0.8
+      }
+    }
+  ]
+}
