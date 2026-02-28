@@ -120,7 +120,7 @@
     "animate_visuals": true,
     "save_results": true,
     "save_figures": true,
-    "results_directory": "results"
+    "results_directory": "outputs"
   }
 
 }

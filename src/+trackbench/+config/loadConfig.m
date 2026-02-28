@@ -30,7 +30,8 @@ function config = loadConfig(configName, varargin)
     end
     
     %%  Load Base Configuration
-    basePath = fullfile(pwd, "config", "default.json");
+    rootDir = resolveProjectRoot();
+    basePath = fullfile(rootDir, "config", "default.json");
     if ~isfile(basePath)
         error("Default config not found: %s", basePath);
     end
@@ -46,10 +47,10 @@ function config = loadConfig(configName, varargin)
         end
 
         % Try in scenarios/ subdirectory first
-        scenarioPath = fullfile(pwd, "config", "scenarios", configName);
+        scenarioPath = fullfile(rootDir, "config", "scenarios", configName);
         if ~isfile(scenarioPath)
             % Try direct path
-            scenarioPath = fullfile(pwd, "config", configName);
+            scenarioPath = fullfile(rootDir, "config", configName);
         end
 
         if isfile(scenarioPath)
@@ -103,6 +104,27 @@ function config = loadConfig(configName, varargin)
     config.active_params.pd = activePd;
 
     fprintf("[CONFIG] Configuration Loaded Successfully.\n")
+end
+
+function rootDir = resolveProjectRoot()
+    % Resolve repository root robustly regardless of current working dir.
+    thisFile = mfilename('fullpath');
+    startDir = fileparts(thisFile);
+    rootDir = startDir;
+
+    for i = 1:8
+        if isfile(fullfile(rootDir, "config", "default.json"))
+            return;
+        end
+        parentDir = fileparts(rootDir);
+        if strcmp(parentDir, rootDir)
+            break;
+        end
+        rootDir = parentDir;
+    end
+
+    % Fallback for edge cases; preserves legacy behavior if root not found.
+    rootDir = pwd;
 end
 
 %% ========================================================================

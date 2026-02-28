@@ -4,7 +4,7 @@
 
 # Generated data/cache/results
 cache/*
-results/*
+outputs/*
 plots/*
 
 # Large generated artifacts

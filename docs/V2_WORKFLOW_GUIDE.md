@@ -40,7 +40,7 @@ V2/
 │       └── analyzeTrackSwaps.m      ← Track swap detection
 │
 ├── cache/                           ← Saved detection logs (.mat files)
-├── results/                         ← Saved run results (.mat files)
+├── outputs/                         ← Saved run results (.mat files)
 │
 ├── testBuildSensor.m                ← Test: all 24 sensor types build correctly
 ├── testLoadSensors.m                ← Test: sensor catalog loads, groups by platform

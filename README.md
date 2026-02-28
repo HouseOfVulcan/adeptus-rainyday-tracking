@@ -137,7 +137,7 @@ adeptus-rainyday-tracking/
 │   └── testLoadSensors.m
 │
 ├── cache/                           ← Saved detection logs (.mat per scenario)
-└── results/                         ← Saved run results (.mat per batch)
+└── outputs/                         ← Saved run results (.mat per batch)
 ```
 
 ## How To: Run Everything
