@@ -16,6 +16,18 @@
     "description": "Weather/environmental degradation mode"
   },
 
+  "environment": {
+    "terrain_occlusion": false,
+    "horizon_masking": false,
+    "refraction_factor": 1.333,
+    "ground_clutter": false,
+    "propagation_model": false,
+    "terrain_type": "water",
+    "clutter_density": 0.5,
+    "_terrain_options": "water | rural | urban | mountain",
+    "_description": "Horizon masking uses 4/3 Earth radius model. Ground clutter generates terrain-dependent false returns at low elevation. Propagation model uses radarvcd to compute vertical coverage patterns accounting for multipath ground-bounce lobing."
+  },
+
   "data_logging": {
     "use_saved_datalog": false,
     "datalog_file": "cache/myRun1.mat",
@@ -49,16 +61,16 @@
     },
 
     "degraded": {
-      "gate": 35,
+      "gate": 80,
       "far_gnn": 1e-2,
       "far_mht": 1e-3,
       "far_jpda": 1e-3,
-      "confirm_threshold": 30,
-      "delete_threshold": -15,
+      "confirm_threshold": 15,
+      "delete_threshold": -7,
       "tomht_threshold_multiplier": [0.2, 5, 5],
       "max_branches": 3,
       "beta_jpda": 1e-11,
-      "gate_jpda": 45,
+      "gate_jpda": 80,
       "time_tolerance_jpda": 0.05,
       "num_tracks_jpda": 200
     }
@@ -72,12 +84,34 @@
   },
   
   "trackers_to_run": {
-    "gnn_cv": true,
-    "gnn_imm": true,
-    "tomht_cv": true,
-    "tomht_imm": true,
-    "jpda_cv": true,
-    "jpda_imm": true
+    "gnn_cv":    true,
+    "gnn_imm":   false,
+    "tomht_cv":  false,
+    "tomht_imm": false,
+    "jpda_cv":   false,
+    "jpda_imm":  false
+  },
+
+  "scenarios_to_run": {
+    "_comment": "Toggle true/false. Run all enabled scenarios with: runAllScenarios()",
+    "dasr_ideal":              false,
+    "dasr_degraded":           false,
+    "crossing_targets":        false,
+    "head_on":                 false,
+    "high_density":            true,
+    "maneuvering_evasive":     false,
+    "storm_window":            false,
+    "long_range_arsr":         false,
+    "approach_pattern":        false,
+    "par_approach":            false,
+    "phased_array_intercept":  false,
+    "ir_radar_fusion":         false,
+    "ir_degraded_weather":     false,
+    "maritime_surface":        false,
+    "fighter_intercept":       false,
+    "fire_control_engagement": false,
+    "layered_defense":         false,
+    "layered_defense_storm":   false
   },
   
   "output": {
@@ -85,6 +119,7 @@
     "show_visuals": true,
     "animate_visuals": true,
     "save_results": true,
+    "save_figures": true,
     "results_directory": "results"
   }
 
