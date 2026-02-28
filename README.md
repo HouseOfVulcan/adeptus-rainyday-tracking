@@ -78,8 +78,6 @@ adeptus-rainyday-tracking/
 │   │   │   ├── sensors_layered_defense.json
 │   │   │   ├── sensors_long_range.json
 │   │   │   └── sensors_phased_array.json
-│   │   └── trackers/
-│   │       └── jpda.json                ← Tracker-specific overrides
 │   ├── templates/
 │   │   └── standard_crossing.json    ← Reusable scenario pattern
 │   └── sweeps/
@@ -119,10 +117,8 @@ adeptus-rainyday-tracking/
 │   │   ├── applyVCPMask.m          ← Per-detection VCP range check
 │   │   ├── computePropFactor.m      ← Propagation factor utility
 │   │   └── generateTerrain.m       ← Procedural heightmap (water/rural/urban/mountain/desert)
-│   ├── +analysis/
-│   │   └── analyzeTrackSwaps.m      ← Track swap detection
-│   └── +batch/
-│       └── runAllScenarios.m        ← Batch runner for all scenarios
+│   └── +analysis/
+│       └── analyzeTrackSwaps.m      ← Track swap detection
 │
 ├── scripts/
 │   ├── runSingleScenario.m          ← Single scenario (smart router)
@@ -433,8 +429,7 @@ Boeing Proprietary.
   scenario duration produces enough scans for the configured sensor(s).
   Prints a per-sensor diagnostic table and warns with recommended minimum
   duration if insufficient.
-- Integrated into all three entry paths: `runScenario`, `runExperiment`,
-  `loadScenario`.
+- Integrated into active entry paths: `runScenario` and `loadScenario`.
 - Post-detection scan count check in `runSingleScenario` catalog path.
 
 **Main-Branch Compatibility Shims**
