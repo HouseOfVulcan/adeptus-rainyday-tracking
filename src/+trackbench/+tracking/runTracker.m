@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:src/+trackbench/+tracking/runTracker.m
-function [trackSummary, truthSummary, trackMetrics, truthMetrics, time] = runTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
-========
-function [trackSummary, truthSummary, trackMetrics, truthMetrics, time, assignLog] = helperRunTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
->>>>>>>> 1200544 (Updated from main branch, added plot):src/helpers/helperRunTracker.m
+function [trackSummary, truthSummary, trackMetrics, truthMetrics, time, assignLog, swapReport] = runTracker(dataLog,tracker,showTruth, showVisuals, animateVisuals)
 %helperRunTracker  Run a tracker on a logged detection sequence and compute metrics.
 %
 % PURPOSE
@@ -153,8 +149,6 @@ time = 0;
 numSteps = numel(dataLog.Time);
 i = 0;
 
-<<<<<<<< HEAD:src/+trackbench/+tracking/runTracker.m
-========
 % NEW: assignment log buffers (one row per assigned track at each scan)
 logTime  = [];
 logPlat  = [];
@@ -164,8 +158,13 @@ logTruth = [];
 % NEW: default so variable always exists (even if no assignments happen)
 assignLog = table([],[],[],[], 'VariableNames', {'Time','PlatformID','TrackID','TruthID'});
 
-
->>>>>>>> 1200544 (Updated from main branch, added plot):src/helpers/helperRunTracker.m
+% Default swap report so batch callers always receive expected fields.
+swapReport = struct( ...
+    'swapFree', true, ...
+    'totalSwaps', 0, ...
+    'maxConsecutive', 0, ...
+    'swapEvents', table(), ...
+    'perTrack', table());
 %% Initialize static buffers if not animating
 if showVisuals && ~animateVisuals
     allStaticDets = cell(1, numSteps); % Buffer for detections
@@ -416,7 +415,7 @@ end
 % NEW: Assignment timeline plot in its own tab
 if showVisuals
     axAssign = tabbedAxes(string(plotTitle) + " | Assignment");
-    plotPlatformToTrackAssignment(axAssign, assignLog, "Platform to Track Assignment");
+    trackbench.reporting.plotPlatformToTrackAssignment(axAssign, assignLog, "Platform to Track Assignment");
 end
 % -------------------------------------------------------------------
 

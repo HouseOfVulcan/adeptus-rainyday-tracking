@@ -116,7 +116,7 @@ saveFigs  = getOr(baseConfig.output, 'save_figures', false);
 %% Prepare figure output directory
 if saveFigs
     timestamp = char(datetime("now", "Format", "yyyyMMdd_HHmmss"));
-    figDir = fullfile(pwd, getOr(baseConfig.output, 'results_directory', 'results'), ...
+    figDir = fullfile(pwd, getOr(baseConfig.output, 'results_directory', 'outputs'), ...
                       ['figures_' timestamp]);
     if ~exist(figDir, 'dir'); mkdir(figDir); end
     fprintf('[FIGURES] Saving .fig files to: %s\n\n', figDir);

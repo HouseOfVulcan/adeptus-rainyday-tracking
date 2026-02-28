@@ -40,7 +40,7 @@ V2/
 │       └── analyzeTrackSwaps.m      ← Track swap detection
 │
 ├── cache/                           ← Saved detection logs (.mat files)
-├── results/                         ← Saved run results (.mat files)
+├── outputs/                         ← Saved run results (.mat files)
 │
 ├── testBuildSensor.m                ← Test: all 24 sensor types build correctly
 ├── testLoadSensors.m                ← Test: sensor catalog loads, groups by platform
@@ -90,7 +90,7 @@ That's it. You have tracks.
 
 ## How To: Choose Your Sensors
 
-Open **`config/sensors.json`** in any text editor. You'll see a list of sensors. Each one has `"enabled": true` or `"enabled": false`.
+Open **`config/components/sensors/sensors.json`** in any text editor. You'll see a list of sensors. Each one has `"enabled": true` or `"enabled": false`.
 
 ### Default Setup (DASR = PSR + SSR)
 ```json
@@ -256,7 +256,7 @@ Then run it:
 
 ## How To: Create a Custom Sensor Config
 
-Copy `config/sensors.json` → `config/sensors_maritime.json`, edit it to enable maritime/sonar sensors, then reference it in your scenario:
+Copy `config/components/sensors/sensors.json` → `config/components/sensors/sensors_maritime.json`, edit it to enable maritime/sonar sensors, then reference it in your scenario:
 
 ```json
 "sensor_config": "sensors_maritime"
@@ -407,7 +407,7 @@ Scenario overrides in `scenario_catalog.json` override any of these fields using
 |--------------|---------|
 | See available scenarios | `loadScenarioCatalog` |
 | Load a scenario | `[scen,cfg,sens,m] = loadScenario("name")` |
-| List available sensors | Open `config/sensors.json` |
+| List available sensors | Open `config/components/sensors/sensors.json` |
 | Enable/disable a sensor | Change `"enabled": true/false` in sensors.json |
 | Add a new scenario | Add entry to `scenario_catalog.json` |
 | Run full comparison | `trackingWithWeather("default_reRunDetections")` |

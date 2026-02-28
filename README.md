@@ -7,7 +7,7 @@
 addpath("scripts");
 
 % ── SINGLE SCENARIO ──────────────────────────────────────────────
-% Uses YOUR sensors from config/sensors/sensors.json + default.json:
+% Uses YOUR sensors from config/components/sensors/sensors.json + default.json:
 runSingleScenario("default")
 
 % Run a specific catalog scenario (uses that scenario's dedicated sensors):
@@ -23,7 +23,7 @@ runAllScenarios(true)
 ```
 
 Configure in two files:
-- **`config/sensors/sensors.json`** — toggle sensors `"enabled": true/false`
+- **`config/components/sensors/sensors.json`** — toggle sensors `"enabled": true/false`
 - **`config/default.json`** — scenarios_to_run, trackers_to_run, duration, degradation, environment, visuals
 
 
@@ -63,23 +63,27 @@ tracker = trackbench.tracking.buildTracker('GNN', 'IMM', config.active_params, .
 adeptus-rainyday-tracking/
 ├── config/
 │   ├── default.json                 ← Base config (tracker params, toggles, environment)
-│   ├── sensors.json                 ← Sensor catalog (19 types, enable/disable)
 │   ├── scenarios/
 │   │   └── scenario_catalog.json    ← All 21 scenario definitions
-│   ├── sensors/
-│   │   ├── sensors.json             ← User-configurable (runSingleScenario "default")
-│   │   ├── sensors_dasr.json        ← PSR+SSR (DASR scenarios)
-│   │   ├── sensors_approach.json    ← PSR+SSR+PAR (par_approach)
-│   │   ├── sensors_default_wedge.json ← 40° sector wedge (main-branch baseline)
-│   │   ├── sensors_fighter.json     ← AESA+FLIR (fighter_intercept)
-│   │   ├── sensors_maritime.json    ← Maritime+Sonar (maritime_surface)
-│   │   ├── sensors_fire_control.json
-│   │   ├── sensors_ir_fusion.json
-│   │   ├── sensors_layered_defense.json
-│   │   ├── sensors_long_range.json
-│   │   └── sensors_phased_array.json
-│   └── trackers/
-│       └── jpda.json                ← Tracker-specific overrides
+│   ├── components/
+│   │   ├── sensors/
+│   │   │   ├── sensors.json             ← User-configurable (runSingleScenario "default")
+│   │   │   ├── sensors_dasr.json        ← PSR+SSR (DASR scenarios)
+│   │   │   ├── sensors_approach.json    ← PSR+SSR+PAR (par_approach)
+│   │   │   ├── sensors_default_wedge.json ← 40° sector wedge (main-branch baseline)
+│   │   │   ├── sensors_fighter.json     ← AESA+FLIR (fighter_intercept)
+│   │   │   ├── sensors_maritime.json    ← Maritime+Sonar (maritime_surface)
+│   │   │   ├── sensors_fire_control.json
+│   │   │   ├── sensors_ir_fusion.json
+│   │   │   ├── sensors_layered_defense.json
+│   │   │   ├── sensors_long_range.json
+│   │   │   └── sensors_phased_array.json
+│   │   └── trackers/
+│   │       └── jpda.json                ← Tracker-specific overrides
+│   ├── templates/
+│   │   └── standard_crossing.json    ← Reusable scenario pattern
+│   └── sweeps/
+│       └── weather_study.json         ← Batch sweep definition
 │
 ├── src/+trackbench/
 │   ├── +config/
@@ -133,7 +137,7 @@ adeptus-rainyday-tracking/
 │   └── testLoadSensors.m
 │
 ├── cache/                           ← Saved detection logs (.mat per scenario)
-└── results/                         ← Saved run results (.mat per batch)
+└── outputs/                         ← Saved run results (.mat per batch)
 ```
 
 ## How To: Run Everything
@@ -147,7 +151,7 @@ addpath("scripts");
 ```matlab
 runSingleScenario("default")          % uses sensors.json + default.json
 ```
-Edit `config/sensors/sensors.json` to toggle which sensors run. Edit `config/default.json` for duration, trackers, environment, visuals.
+Edit `config/components/sensors/sensors.json` to toggle which sensors run. Edit `config/default.json` for duration, trackers, environment, visuals.
 
 ### Option B: Batch showcase — dedicated sensors per scenario
 ```matlab
@@ -379,7 +383,7 @@ Boeing Proprietary.
   to the simple `loadConfig` → `createScenario` (DASR) path.
 - Added `"default"` entry to `scenario_catalog.json` that reads `sensors.json`.
   This means `runSingleScenario("default")` now honors sensor toggles in
-  `config/sensors/sensors.json` instead of using the hardcoded DASR.
+  `config/components/sensors/sensors.json` instead of using the hardcoded DASR.
 - All scenarios are now accessible via one command:
   ```matlab
   addpath("scripts");
@@ -393,7 +397,7 @@ Boeing Proprietary.
 - Added "Default Wedge Radar (Main Branch Baseline)" to `sensors.json`
   (`enabled: false` by default). This is the original main-branch 40° sector
   radar: 25 RPM, FOV [1.5, 10], sector [250, 290], Pd 0.8.
-- Created `config/sensors/sensors_default_wedge.json` (standalone sensor config).
+- Created `config/components/sensors/sensors_default_wedge.json` (standalone sensor config).
 - Added `default_wedge_ideal` and `default_wedge_degraded` to scenario catalog.
 
 **Sector Scanner Fix (`runDetections.m`)**
