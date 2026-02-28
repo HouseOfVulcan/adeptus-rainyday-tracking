@@ -23,7 +23,7 @@ if ~endsWith(catalogName, ".json")
     catalogName = catalogName + ".json";
 end
 
-jsonPath = fullfile(pwd, "config", "scenarios", catalogName);
+jsonPath = trackbench.util.pathFromRoot("config", "scenarios", catalogName);
 if ~isfile(jsonPath)
     error('loadScenarioCatalog:notFound', 'Catalog not found: %s', jsonPath);
 end

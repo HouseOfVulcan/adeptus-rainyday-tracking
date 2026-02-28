@@ -49,7 +49,7 @@ config = trackbench.config.loadConfig("default");
 if ~endsWith(catalogName, ".json")
     catalogName = catalogName + ".json";
 end
-catPath = fullfile(pwd, "config", "scenarios", catalogName);
+catPath = trackbench.util.pathFromRoot("config", "scenarios", catalogName);
 if ~isfile(catPath)
     error('loadScenario:catalogNotFound', 'Catalog not found: %s', catPath);
 end

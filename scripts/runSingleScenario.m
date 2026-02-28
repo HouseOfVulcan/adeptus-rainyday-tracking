@@ -14,14 +14,13 @@ end
 clc; close all;
 
 %% Setup
-root = resolveRootFromThisFile();
-addpath(genpath(fullfile(root, "src")));
+ctx = setupTrackbench();
 
 %% Load Configuration
 config = trackbench.config.loadConfig(configName);
 
 %% Resolve IO paths now that config is available
-paths = buildPaths(root, config);
+paths = buildPaths(ctx.root, config);
 
 fprintf("\n==============================\n");
 fprintf(" RUN START\n");
@@ -75,14 +74,6 @@ end
 fprintf("\n==============================\n");
 fprintf(" RUN END\n");
 fprintf("==============================\n\n");
-end
-
-%%% Helper functions %%%
-
-function root = resolveRootFromThisFile()
-    % Infer project root from this file location: <root>/scripts/[this_file].m
-    thisFile = mfilename('fullpath');
-    root = fileparts(fileparts(thisFile));
 end
 
 function paths = buildPaths(root, config)

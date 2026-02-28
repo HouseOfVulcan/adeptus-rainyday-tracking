@@ -75,7 +75,7 @@ for k = 1:numel(runNames)
 end
 
 %% Export to CSV
-outDir = fullfile(pwd, 'recovered_exports');
+outDir = trackbench.util.pathFromRoot('recovered_exports');
 if ~exist(outDir, 'dir'), mkdir(outDir); end
 
 for k = 1:numel(runNames)

@@ -8,5 +8,6 @@ arguments
     configName (1,1) string = "default_reRunDetections"
 end
 
+setupTrackbench();
 trackbench.batch.runExperiment(configName);
 end
